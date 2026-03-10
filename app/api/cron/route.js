@@ -112,7 +112,7 @@ export async function GET(request) {
         schedule.forEach((inst) => {
           if (inst.paid) return;
           const dtp = getDaysUntil(inst.date);
-          if (dtp >= -7 && dtp <= 14) {
+          if (dtp >= -7 && dtp <= 30) {
             alerts.push({
               type: "💳 결제",
               vendor: c.vendor,
