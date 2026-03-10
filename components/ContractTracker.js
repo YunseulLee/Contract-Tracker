@@ -56,7 +56,7 @@ const generateNotifications = (contracts) => {
         if (inst.paid) return;
         const dtp = getDaysUntil(inst.date);
         if (dtp >= -7 && dtp <= 30) {
-          notifs.push({ id: `${c.id}-inst-${idx}`, type: "installment", urgency: dtp <= 0 ? "critical" : dtp <= 7 ? "warning" : "upcoming", title: dtp <= 0 ? `분할결제 ${inst.label} 기한 경과` : `분할결제 ${inst.label} ${dtp}일 전`, message: `${c.vendor} — ${c.name} ${inst.label} 결제: ${formatCurrency(inst.amount, c.currency)} (${inst.date})`, vendor: c.vendor, contractName: c.name, daysLeft: dtp, date: inst.date, autoRenew: false, annualCost: inst.amount, currency: c.currency, studio: c.studio, ownerName: c.owner_name, ownerEmail: c.owner_email });
+          notifs.push({ id: `${c.id}-inst-${idx}`, type: "installment", urgency: dtp <= 0 ? "critical" : dtp <= 7 ? "critical" : dtp <= 14 ? "warning" : "upcoming", title: dtp <= 0 ? `분할결제 ${inst.label} 기한 경과` : `분할결제 ${inst.label} ${dtp}일 전`, message: `${c.vendor} — ${c.name} ${inst.label} 결제: ${formatCurrency(inst.amount, c.currency)} (${inst.date})`, vendor: c.vendor, contractName: c.name, daysLeft: dtp, date: inst.date, autoRenew: false, annualCost: inst.amount, currency: c.currency, studio: c.studio, ownerName: c.owner_name, ownerEmail: c.owner_email });
         }
       });
     }
@@ -122,33 +122,12 @@ const ContractForm = ({ contract, onSave, onCancel, existingStudios, existingTyp
       <div style={{ padding: "14px 0 6px", borderTop: "1px solid #1A1F2B", marginTop: 8 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: "#6BA3FF", letterSpacing: "1px", textTransform: "uppercase", marginBottom: 12 }}>💳 결제 방식</div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "center" }}>
-        <InputField label="분할 결제">
-          <div onClick={() => { up("installment_enabled", !form.installment_enabled); if (!form.installment_enabled && form.installment_schedule.length === 0) up("installment_schedule", [{ date: "", amount: 0, label: "1차", paid: false }]); }} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "10px 0" }}>
-            <div style={{ width: 44, height: 24, borderRadius: 12, background: form.installment_enabled ? "#4A6FA5" : "#2E3440", position: "relative", transition: "background 0.3s" }}><div style={{ width: 18, height: 18, borderRadius: "50%", background: "#E8ECF2", position: "absolute", top: 3, left: form.installment_enabled ? 23 : 3, transition: "left 0.3s" }} /></div>
-            <span style={{ fontSize: 13, color: "#8892A0" }}>{form.installment_enabled ? "ON" : "OFF (일시불)"}</span>
-          </div>
-        </InputField>
-        {form.installment_enabled && (
-          <InputField label="자동 분할">
-            <div style={{ display: "flex", gap: 6 }}>
-              {[{l:"2회",n:2},{l:"3회",n:3},{l:"4회(분기)",n:4},{l:"12회(월)",n:12}].map(({l,n}) => (
-                <button key={n} onClick={() => {
-                  if (!form.start_date || !form.annual_cost) return;
-                  const base = new Date(form.start_date);
-                  const amt = Math.round((form.annual_cost || 0) / n);
-                  const months = Math.round(12 / n);
-                  const sched = Array.from({length: n}, (_, i) => {
-                    const d = new Date(base); d.setMonth(d.getMonth() + months * i);
-                    return { date: d.toISOString().slice(0, 10), amount: i === n - 1 ? (form.annual_cost || 0) - amt * (n - 1) : amt, label: `${i + 1}차`, paid: false };
-                  });
-                  up("installment_schedule", sched);
-                }} style={{ flex: 1, padding: "8px 4px", borderRadius: 6, border: "1px solid #2E3440", background: "#0D1017", color: "#6BA3FF", fontSize: 11, cursor: "pointer" }}>{l}</button>
-              ))}
-            </div>
-          </InputField>
-        )}
-      </div>
+      <InputField label="분할 결제">
+        <div onClick={() => { up("installment_enabled", !form.installment_enabled); if (!form.installment_enabled && form.installment_schedule.length === 0) up("installment_schedule", [{ date: "", amount: 0, label: "1차", paid: false }]); }} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "10px 0" }}>
+          <div style={{ width: 44, height: 24, borderRadius: 12, background: form.installment_enabled ? "#4A6FA5" : "#2E3440", position: "relative", transition: "background 0.3s" }}><div style={{ width: 18, height: 18, borderRadius: "50%", background: "#E8ECF2", position: "absolute", top: 3, left: form.installment_enabled ? 23 : 3, transition: "left 0.3s" }} /></div>
+          <span style={{ fontSize: 13, color: "#8892A0" }}>{form.installment_enabled ? "ON" : "OFF (일시불)"}</span>
+        </div>
+      </InputField>
       {form.installment_enabled && form.installment_schedule.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 1fr 40px", gap: 8, marginBottom: 8 }}>
