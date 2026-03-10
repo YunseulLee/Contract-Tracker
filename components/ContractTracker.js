@@ -87,6 +87,7 @@ const ContractForm = ({ contract, onSave, onCancel, existingStudios, existingTyp
         <InputField label="공급사명"><input style={inputStyle} value={form.supplier} onChange={e => up("supplier", e.target.value)} placeholder="e.g. GS네오텍, 메가존클라우드" /></InputField>
         <InputField label="스튜디오"><EditableSelect value={form.studio} onChange={v => up("studio", v)} options={studioOptions} placeholder="스튜디오명 입력" /></InputField>
       </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
         <InputField label="계약 유형"><EditableSelect value={form.type} onChange={v => up("type", v)} options={typeOptions} placeholder="계약 유형 입력" /></InputField>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
