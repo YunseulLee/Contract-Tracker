@@ -20,6 +20,45 @@ const InputField = ({ label, required, children }) => (<div style={{ marginBotto
 
 const inputStyle = { width: "100%", padding: "10px 14px", background: "#0D1017", border: "1px solid #2E3440", borderRadius: 10, color: "#E8ECF2", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
 
+// ─── Custom Date Input (YYYY-MM-DD, auto-tab) ───
+const DateInput = ({ value, onChange }) => {
+  const parts = (value || "").split("-");
+  const [y, setY] = useState(parts[0] || "");
+  const [m, setM] = useState(parts[1] || "");
+  const [d, setD] = useState(parts[2] || "");
+  const mRef = useRef(); const dRef = useRef();
+
+  useEffect(() => {
+    const p = (value || "").split("-");
+    setY(p[0] || ""); setM(p[1] || ""); setD(p[2] || "");
+  }, [value]);
+
+  const emit = (yy, mm, dd) => {
+    if (yy && mm && dd) onChange(`${yy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`);
+    else if (!yy && !mm && !dd) onChange("");
+  };
+
+  const seg = { background: "#0D1017", border: "1px solid #2E3440", borderRadius: 8, color: "#E8ECF2", fontSize: 14, fontFamily: "inherit", outline: "none", textAlign: "center", padding: "10px 4px" };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <input style={{ ...seg, width: 64 }} maxLength={4} placeholder="YYYY" value={y}
+        onChange={e => { const v = e.target.value.replace(/\D/g,"").slice(0,4); setY(v); if (v.length === 4) mRef.current?.focus(); emit(v, m, d); }}
+      />
+      <span style={{ color: "#4A5568" }}>-</span>
+      <input ref={mRef} style={{ ...seg, width: 44 }} maxLength={2} placeholder="MM" value={m}
+        onChange={e => { const v = e.target.value.replace(/\D/g,"").slice(0,2); setM(v); if (v.length === 2) dRef.current?.focus(); emit(y, v, d); }}
+        onKeyDown={e => { if (e.key === "Backspace" && !m) { setY(y.slice(0,-1)); e.target.previousSibling?.previousSibling?.focus(); } }}
+      />
+      <span style={{ color: "#4A5568" }}>-</span>
+      <input ref={dRef} style={{ ...seg, width: 44 }} maxLength={2} placeholder="DD" value={d}
+        onChange={e => { const v = e.target.value.replace(/\D/g,"").slice(0,2); setD(v); emit(y, m, v); }}
+        onKeyDown={e => { if (e.key === "Backspace" && !d) { setM(m.slice(0,-1)); mRef.current?.focus(); } }}
+      />
+    </div>
+  );
+};
+
 const Toast = ({ message, type, onClose }) => { useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]); const colors = { success: { bg: "#1B2D2A", border: "#3A8B7A", text: "#66FFCC" }, error: { bg: "#2D1B1B", border: "#8B3A3A", text: "#FF6B6B" }, info: { bg: "#1B2333", border: "#2E4A7A", text: "#6BA3FF" } }; const c = colors[type] || colors.info; return <div style={{ position: "fixed", top: 20, right: 20, zIndex: 9999, padding: "14px 22px", borderRadius: 12, background: c.bg, border: `1px solid ${c.border}`, color: c.text, fontSize: 13, fontWeight: 500, boxShadow: "0 8px 32px rgba(0,0,0,0.4)", animation: "fadeIn 0.3s ease", maxWidth: 400 }}>{message}</div>; };
 
 // ─── Editable Select (선택 + 직접입력) ───
@@ -91,9 +130,9 @@ const ContractForm = ({ contract, onSave, onCancel, existingStudios, existingTyp
         <InputField label="계약 유형"><EditableSelect value={form.type} onChange={v => up("type", v)} options={typeOptions} placeholder="계약 유형 입력" /></InputField>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
-        <InputField label="시작일" required><input style={inputStyle} type="date" value={form.start_date} onChange={e => up("start_date", e.target.value)} /></InputField>
-        <InputField label="종료일" required><input style={inputStyle} type="date" value={form.end_date} onChange={e => up("end_date", e.target.value)} /></InputField>
-        <InputField label="갱신 통보일"><input style={inputStyle} type="date" value={form.renewal_date} onChange={e => up("renewal_date", e.target.value)} /></InputField>
+        <InputField label="시작일" required><DateInput value={form.start_date} onChange={v => up("start_date", v)} /></InputField>
+        <InputField label="종료일" required><DateInput value={form.end_date} onChange={v => up("end_date", v)} /></InputField>
+        <InputField label="갱신 통보일"><DateInput value={form.renewal_date} onChange={v => up("renewal_date", v)} /></InputField>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <InputField label="연간 비용"><input style={inputStyle} type="number" value={form.annual_cost} onChange={e => up("annual_cost", Number(e.target.value))} /></InputField>
@@ -139,7 +178,7 @@ const ContractForm = ({ contract, onSave, onCancel, existingStudios, existingTyp
           {form.installment_schedule.map((item, idx) => (
             <div key={idx} style={{ display: "grid", gridTemplateColumns: "60px 1fr 1fr 40px", gap: 8, marginBottom: 6, alignItems: "center" }}>
               <span style={{ fontSize: 13, color: "#8892A0", padding: "0 4px" }}>{item.label}</span>
-              <input style={{ ...inputStyle, padding: "8px 10px", fontSize: 13 }} type="date" value={item.date} onChange={e => { const s = [...form.installment_schedule]; s[idx] = {...s[idx], date: e.target.value}; up("installment_schedule", s); }} />
+              <DateInput value={item.date} onChange={v => { const s = [...form.installment_schedule]; s[idx] = {...s[idx], date: v}; up("installment_schedule", s); }} />
               <input style={{ ...inputStyle, padding: "8px 10px", fontSize: 13 }} type="number" value={item.amount} onChange={e => { const s = [...form.installment_schedule]; s[idx] = {...s[idx], amount: Number(e.target.value)}; up("installment_schedule", s); }} />
               <button onClick={() => { const s = form.installment_schedule.filter((_, i) => i !== idx); up("installment_schedule", s); }} style={{ background: "none", border: "none", color: "#FF6B6B", fontSize: 16, cursor: "pointer", padding: 0 }}>×</button>
             </div>
