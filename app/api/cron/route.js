@@ -51,8 +51,8 @@ export async function GET(request) {
           detail: `만료 ${daysToEnd}일 전 (${c.end_date})`,
           cost: formatCurrency(c.annual_cost, c.currency),
           owner: c.owner_name || "",
-          studio: c.studio,
-          daysLeft: daysToEnd,
+          studio: c.studio, wiki_url: c.wiki_url || "",
+          daysLeft: daysToEnd, wiki_url: c.wiki_url || "",
         });
       }
 
@@ -69,8 +69,8 @@ export async function GET(request) {
             detail: `해지 통보 마감 ${daysToNotice}일 전 (통보기간: ${c.auto_renew_notice_days}일)`,
             cost: formatCurrency(c.annual_cost, c.currency),
             owner: c.owner_name || "",
-            studio: c.studio,
-            daysLeft: daysToNotice,
+            studio: c.studio, wiki_url: c.wiki_url || "",
+            daysLeft: daysToNotice, wiki_url: c.wiki_url || "",
           });
         }
       }
@@ -84,8 +84,8 @@ export async function GET(request) {
           detail: `갱신 통보일 ${daysToRenewal}일 전 (${c.renewal_date})`,
           cost: formatCurrency(c.annual_cost, c.currency),
           owner: c.owner_name || "",
-          studio: c.studio,
-          daysLeft: daysToRenewal,
+          studio: c.studio, wiki_url: c.wiki_url || "",
+          daysLeft: daysToRenewal, wiki_url: c.wiki_url || "",
         });
       }
 
@@ -98,8 +98,8 @@ export async function GET(request) {
           detail: `${Math.abs(daysToEnd)}일 전 만료됨 (${c.end_date})`,
           cost: formatCurrency(c.annual_cost, c.currency),
           owner: c.owner_name || "",
-          studio: c.studio,
-          daysLeft: daysToEnd,
+          studio: c.studio, wiki_url: c.wiki_url || "",
+          daysLeft: daysToEnd, wiki_url: c.wiki_url || "",
         });
       }
 
@@ -120,8 +120,8 @@ export async function GET(request) {
               detail: dtp <= 0 ? `${inst.label} 결제 기한 ${Math.abs(dtp)}일 경과 (${inst.date})` : `${inst.label} 결제 ${dtp}일 전 (${inst.date})`,
               cost: formatCurrency(inst.amount, c.currency),
               owner: c.owner_name || "",
-              studio: c.studio,
-              daysLeft: dtp,
+              studio: c.studio, wiki_url: c.wiki_url || "",
+              daysLeft: dtp, wiki_url: c.wiki_url || "",
             });
           }
         });
@@ -144,7 +144,7 @@ export async function GET(request) {
 
     alerts.forEach((a) => {
       message += `${a.type} *${a.vendor}* — ${a.name}\n`;
-      message += `> ${a.detail} | ${a.cost}${a.owner ? ` | 담당: ${a.owner}` : ""}\n\n`;
+      message += `> ${a.detail} | ${a.cost}${a.owner ? ` | 담당: ${a.owner}` : ""}${a.wiki_url ? `\n> 📎 ${a.wiki_url}` : ""}\n\n`;
     });
 
     message += `_IT Procurement — Contract Tracker_`;
