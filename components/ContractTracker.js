@@ -38,20 +38,20 @@ const DateInput = ({ value, onChange }) => {
     else if (!yy && !mm && !dd) onChange("");
   };
 
-  const seg = { background: "#0D1017", border: "1px solid #2E3440", borderRadius: 8, color: "#E8ECF2", fontSize: 14, fontFamily: "inherit", outline: "none", textAlign: "center", padding: "10px 4px" };
+  const seg = { background: "#0D1017", border: "1px solid #2E3440", borderRadius: 6, color: "#E8ECF2", fontSize: 13, fontFamily: "inherit", outline: "none", textAlign: "center", padding: "10px 2px" };
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-      <input style={{ ...seg, width: 64 }} maxLength={4} placeholder="YYYY" value={y}
+    <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+      <input style={{ ...seg, width: 52 }} maxLength={4} placeholder="YYYY" value={y}
         onChange={e => { const v = e.target.value.replace(/\D/g,"").slice(0,4); setY(v); if (v.length === 4) mRef.current?.focus(); emit(v, m, d); }}
       />
-      <span style={{ color: "#4A5568" }}>-</span>
-      <input ref={mRef} style={{ ...seg, width: 44 }} maxLength={2} placeholder="MM" value={m}
+      <span style={{ color: "#4A5568", fontSize: 12 }}>.</span>
+      <input ref={mRef} style={{ ...seg, width: 36 }} maxLength={2} placeholder="MM" value={m}
         onChange={e => { const v = e.target.value.replace(/\D/g,"").slice(0,2); setM(v); if (v.length === 2) dRef.current?.focus(); emit(y, v, d); }}
         onKeyDown={e => { if (e.key === "Backspace" && !m) { setY(y.slice(0,-1)); e.target.previousSibling?.previousSibling?.focus(); } }}
       />
-      <span style={{ color: "#4A5568" }}>-</span>
-      <input ref={dRef} style={{ ...seg, width: 44 }} maxLength={2} placeholder="DD" value={d}
+      <span style={{ color: "#4A5568", fontSize: 12 }}>.</span>
+      <input ref={dRef} style={{ ...seg, width: 36 }} maxLength={2} placeholder="DD" value={d}
         onChange={e => { const v = e.target.value.replace(/\D/g,"").slice(0,2); setD(v); emit(y, m, v); }}
         onKeyDown={e => { if (e.key === "Backspace" && !d) { setM(m.slice(0,-1)); mRef.current?.focus(); } }}
       />
@@ -598,7 +598,7 @@ export default function ContractTracker() {
         </div>)}
       </Modal>
 
-      <Modal isOpen={showForm} onClose={() => { setShowForm(false); setEditContract(null); }} title={editContract ? "계약 수정" : "계약 등록"}>
+      <Modal isOpen={showForm} onClose={() => { setShowForm(false); setEditContract(null); }} title={editContract ? "계약 수정" : "계약 등록"} width={680}>
         <ContractForm contract={editContract} onSave={saveContract} onCancel={() => { setShowForm(false); setEditContract(null); }} existingStudios={existingStudios} existingTypes={existingTypes} />
       </Modal>
 
