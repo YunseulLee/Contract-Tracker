@@ -8,8 +8,34 @@ const getDaysUntil = (dateStr) => { if (!dateStr) return Infinity; const now = n
 const getUrgencyLevel = (c) => { const m = Math.min(getDaysUntil(c.end_date), getDaysUntil(c.renewal_date)); if (m < 0) return "expired"; if (m <= 30) return "critical"; if (m <= 60) return "warning"; if (m <= 90) return "upcoming"; return "safe"; };
 const urgencyColors = { expired: { bg: "#2D1B1B", border: "#8B3A3A", text: "#FF6B6B", dot: "#FF4444" }, critical: { bg: "#2D2118", border: "#8B5E3A", text: "#FFB347", dot: "#FF8C00" }, warning: { bg: "#2D2A18", border: "#8B833A", text: "#FFE066", dot: "#FFD700" }, upcoming: { bg: "#1B2D2A", border: "#3A8B7A", text: "#66FFCC", dot: "#00D4AA" }, safe: { bg: "#1A1D23", border: "#2E3440", text: "#8892A0", dot: "#4A6FA5" } };
 
-const fromDB = (row) => ({ id: row.id, vendor: row.vendor, name: row.name, type: row.type, start_date: row.start_date, end_date: row.end_date, renewal_date: row.renewal_date, auto_renew: row.auto_renew, auto_renew_notice_days: row.auto_renew_notice_days, annual_cost: row.annual_cost, currency: row.currency, status: row.status, notes: row.notes, studio: row.studio, owner_name: row.owner_name, owner_email: row.owner_email, wiki_url: row.wiki_url, supplier: row.supplier, installment_enabled: row.installment_enabled || false, installment_schedule: row.installment_schedule ? (typeof row.installment_schedule === "string" ? JSON.parse(row.installment_schedule) : row.installment_schedule) : [] });
+const fromDB = (row) => ({ id: row.id, vendor: row.vendor, name: row.name, type: row.type, start_date: row.start_date, end_date: row.end_date, renewal_date: row.renewal_date, auto_renew: row.auto_renew, auto_renew_notice_days: row.auto_renew_notice_days, annual_cost: row.annual_cost, currency: row.currency, status: row.status, notes: row.notes, studio: row.studio, owner_name: row.owner_name, owner_email: row.owner_email, wiki_url: row.wiki_url, supplier: row.supplier, installment_enabled: row.installment_enabled || false, installment_schedule: row.installment_schedule ? (typeof row.installment_schedule === "string" ? JSON.parse(row.installment_schedule) : row.installment_schedule) : [], is_deleted: row.is_deleted || false, deleted_at: row.deleted_at || null });
 const toDB = (c) => ({ vendor: c.vendor, name: c.name, type: c.type, start_date: c.start_date || null, end_date: c.end_date, renewal_date: c.renewal_date || null, auto_renew: c.auto_renew || false, auto_renew_notice_days: c.auto_renew_notice_days || 30, annual_cost: c.annual_cost || 0, currency: c.currency || "USD", status: c.status || "active", notes: c.notes || "", studio: c.studio || "KRAFTON", owner_name: c.owner_name || "", owner_email: c.owner_email || "", wiki_url: c.wiki_url || "", supplier: c.supplier || "", installment_enabled: c.installment_enabled || false, installment_schedule: c.installment_schedule ? JSON.stringify(c.installment_schedule) : "[]" });
+
+// ─── Audit Log ───
+const fieldLabels = { vendor: "벤더", name: "계약명", type: "유형", start_date: "시작일", end_date: "종료일", renewal_date: "갱신 통보일", auto_renew: "자동갱신", auto_renew_notice_days: "사전 통보 기간", annual_cost: "연간 비용", currency: "통화", status: "상태", notes: "메모", studio: "스튜디오", owner_name: "담당자", owner_email: "담당자 이메일", wiki_url: "Wiki 링크", supplier: "공급사", installment_enabled: "분할 결제", installment_schedule: "분할 결제 일정" };
+const auditFields = ["vendor", "name", "type", "start_date", "end_date", "renewal_date", "auto_renew", "auto_renew_notice_days", "annual_cost", "currency", "status", "notes", "studio", "owner_name", "owner_email", "wiki_url", "supplier", "installment_enabled", "installment_schedule"];
+
+const writeAuditLog = async (contractId, action, changes = [], changedBy = "") => {
+  if (action === "create" || action === "delete" || action === "restore") {
+    await supabase.from("audit_log").insert({ contract_id: contractId, action, field_name: null, old_value: null, new_value: null, changed_by: changedBy });
+    return;
+  }
+  if (changes.length > 0) {
+    const rows = changes.map(ch => ({ contract_id: contractId, action, field_name: ch.field_name, old_value: ch.old_value, new_value: ch.new_value, changed_by: changedBy }));
+    await supabase.from("audit_log").insert(rows);
+  }
+};
+
+const diffContract = (oldC, newC) => {
+  const changes = [];
+  auditFields.forEach(f => {
+    let ov = oldC[f], nv = newC[f];
+    if (f === "installment_schedule") { ov = JSON.stringify(ov || []); nv = JSON.stringify(nv || []); }
+    const ovs = String(ov ?? ""); const nvs = String(nv ?? "");
+    if (ovs !== nvs) changes.push({ field_name: f, old_value: ovs, new_value: nvs });
+  });
+  return changes;
+};
 
 // ─── Sub-components ───
 const StatusBadge = ({ urgency, autoRenew }) => { const labels = { expired: "만료됨", critical: "긴급", warning: "주의", upcoming: "예정", safe: "정상" }; const c = urgencyColors[urgency]; return (<div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: c.bg, color: c.text, border: `1px solid ${c.border}` }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: c.dot, boxShadow: `0 0 6px ${c.dot}60`, animation: urgency === "critical" ? "pulse 1.5s infinite" : "none" }} />{labels[urgency]}</span>{autoRenew && <span style={{ padding: "3px 8px", borderRadius: 20, fontSize: 10, fontWeight: 600, background: "#1B2333", color: "#6BA3FF", border: "1px solid #2E4A7A" }}>↻ 자동갱신</span>}</div>); };
@@ -21,6 +47,30 @@ const InputField = ({ label, required, children }) => (<div style={{ marginBotto
 const inputStyle = { width: "100%", padding: "10px 14px", background: "#0D1017", border: "1px solid #2E3440", borderRadius: 10, color: "#E8ECF2", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
 
 const Toast = ({ message, type, onClose }) => { useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]); const colors = { success: { bg: "#1B2D2A", border: "#3A8B7A", text: "#66FFCC" }, error: { bg: "#2D1B1B", border: "#8B3A3A", text: "#FF6B6B" }, info: { bg: "#1B2333", border: "#2E4A7A", text: "#6BA3FF" } }; const c = colors[type] || colors.info; return <div style={{ position: "fixed", top: 20, right: 20, zIndex: 9999, padding: "14px 22px", borderRadius: 12, background: c.bg, border: `1px solid ${c.border}`, color: c.text, fontSize: 13, fontWeight: 500, boxShadow: "0 8px 32px rgba(0,0,0,0.4)", animation: "fadeIn 0.3s ease", maxWidth: 400 }}>{message}</div>; };
+
+// ─── Delete Confirm Modal ───
+const DeleteConfirmModal = ({ isOpen, contract, onConfirm, onClose }) => {
+  const [typed, setTyped] = useState("");
+  useEffect(() => { if (isOpen) setTyped(""); }, [isOpen]);
+  if (!isOpen || !contract) return null;
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#141820", border: "1px solid #8B3A3A", borderRadius: 16, width: "100%", maxWidth: 440, boxShadow: "0 24px 80px rgba(0,0,0,0.6)", padding: 28 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#FF6B6B", marginBottom: 16 }}>계약 삭제</div>
+        <div style={{ fontSize: 13, color: "#8892A0", marginBottom: 8, lineHeight: 1.6 }}>
+          <span style={{ fontWeight: 600, color: "#E8ECF2" }}>{contract.vendor} — {contract.name}</span> 계약을 삭제하시겠습니까?
+        </div>
+        <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 20 }}>삭제된 계약은 휴지통으로 이동되며 30일 후 완전 삭제됩니다.</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "#FF6B6B", marginBottom: 8 }}>확인을 위해 아래에 "삭제"를 입력하세요:</div>
+        <input style={{ ...inputStyle, border: `1px solid ${typed === "삭제" ? "#3A8B7A" : "#2E3440"}`, marginBottom: 20 }} value={typed} onChange={e => setTyped(e.target.value)} placeholder="삭제" autoFocus />
+        <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ padding: "10px 24px", borderRadius: 10, border: "1px solid #2E3440", background: "transparent", color: "#8892A0", fontSize: 14, cursor: "pointer" }}>취소</button>
+          <button onClick={() => { if (typed === "삭제") onConfirm(contract.id); }} disabled={typed !== "삭제"} style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: typed === "삭제" ? "#8B3A3A" : "#2E3440", color: typed === "삭제" ? "#E8ECF2" : "#555", fontSize: 14, fontWeight: 600, cursor: typed === "삭제" ? "pointer" : "default", transition: "all 0.2s" }}>삭제</button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ─── Editable Select (선택 + 직접입력) ───
 const EditableSelect = ({ value, onChange, options, placeholder }) => {
@@ -342,6 +392,223 @@ const OptionsManager = ({ studios, types, contracts, onSave, onClose }) => {
   );
 };
 
+// ─── Timeline Calendar ───
+const TimelineCalendar = ({ contracts, onSelectContract }) => {
+  const [selectedMonth, setSelectedMonth] = useState(null);
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const y = currentYear + Math.floor((currentMonth + i) / 12);
+    const m = (currentMonth + i) % 12;
+    return { year: y, month: m, key: `${y}-${String(m + 1).padStart(2, "0")}` };
+  });
+
+  const activeContracts = contracts.filter(c => c.status === "active");
+
+  const monthData = useMemo(() => {
+    const map = {};
+    months.forEach(({ key, year, month }) => {
+      const items = [];
+      activeContracts.forEach(c => {
+        const events = [];
+        if (c.end_date) { const d = new Date(c.end_date + "T00:00:00Z"); if (d.getUTCFullYear() === year && d.getUTCMonth() === month) events.push({ type: "만료", date: c.end_date }); }
+        if (c.renewal_date) { const d = new Date(c.renewal_date + "T00:00:00Z"); if (d.getUTCFullYear() === year && d.getUTCMonth() === month) events.push({ type: "갱신", date: c.renewal_date }); }
+        if (events.length > 0) items.push({ contract: c, events });
+      });
+      map[key] = items;
+    });
+    return map;
+  }, [contracts]);
+
+  const getMonthColor = (key, monthIdx) => {
+    const today = new Date(); today.setUTCHours(0, 0, 0, 0);
+    const items = monthData[key] || [];
+    if (items.length === 0) return { bar: "#1A1F2B", text: "#4A5568" };
+    let minDays = Infinity;
+    items.forEach(({ events }) => events.forEach(ev => {
+      const d = Math.ceil((new Date(ev.date + "T00:00:00Z") - today) / 86400000);
+      if (d < minDays) minDays = d;
+    }));
+    if (minDays <= 30) return { bar: "#FF4444", text: "#FF6B6B" };
+    if (minDays <= 60) return { bar: "#FFD700", text: "#FFE066" };
+    return { bar: "#4A6FA5", text: "#6BA3FF" };
+  };
+
+  const isCurrentMonth = (year, month) => year === currentYear && month === currentMonth;
+  const selectedItems = selectedMonth ? (monthData[selectedMonth] || []) : [];
+  const maxCount = Math.max(1, ...months.map(m => (monthData[m.key] || []).length));
+  const monthNames = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
+
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: "#8892A0", marginBottom: 14 }}>📅 만료 타임라인</div>
+      <div style={{ background: "#111620", border: "1px solid #1A1F2B", borderRadius: 14, padding: "20px 22px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 6 }}>
+          {months.map(({ year, month, key }) => {
+            const count = (monthData[key] || []).length;
+            const colors = getMonthColor(key);
+            const isCurrent = isCurrentMonth(year, month);
+            const isSelected = selectedMonth === key;
+            const barHeight = count > 0 ? Math.max(8, (count / maxCount) * 60) : 4;
+            return (
+              <div key={key} onClick={() => setSelectedMonth(isSelected ? null : key)} style={{ cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: "8px 0", borderRadius: 10, background: isSelected ? "#1A1F2B" : "transparent", border: isCurrent ? "1px solid #4A6FA540" : "1px solid transparent", transition: "all 0.2s" }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: isCurrent ? "#E8ECF2" : "#6B7280", letterSpacing: "0.5px" }}>{monthNames[month]}</div>
+                <div style={{ fontSize: 9, color: "#4A5568" }}>{year}</div>
+                <div style={{ width: "100%", display: "flex", justifyContent: "center", alignItems: "flex-end", height: 64 }}>
+                  <div style={{ width: "60%", height: barHeight, borderRadius: 4, background: count > 0 ? colors.bar : "#1A1F2B", opacity: count > 0 ? 0.85 : 0.4, transition: "height 0.3s ease" }} />
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: count > 0 ? colors.text : "#2E3440", minHeight: 18 }}>{count > 0 ? count : ""}</div>
+                {isCurrent && <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#4A6FA5" }} />}
+              </div>
+            );
+          })}
+        </div>
+
+        {selectedMonth && selectedItems.length > 0 && (
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #1A1F2B" }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#8892A0", marginBottom: 10 }}>
+              {selectedMonth.replace("-", "년 ")}월 — {selectedItems.length}건
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {selectedItems.map(({ contract: sc, events }) => {
+                const urg = getUrgencyLevel(sc);
+                const uc = urgencyColors[urg];
+                return (
+                  <div key={sc.id} onClick={() => onSelectContract(sc)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: uc.bg, border: `1px solid ${uc.border}30`, borderRadius: 10, cursor: "pointer", transition: "background 0.2s" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <StatusBadge urgency={urg} autoRenew={sc.auto_renew} />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#E8ECF2" }}>{sc.vendor} — {sc.name}</div>
+                        <div style={{ fontSize: 11, color: "#6B7280" }}>{sc.owner_name || sc.studio} · {formatCurrency(sc.annual_cost, sc.currency)}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      {events.map((ev, ei) => (
+                        <span key={ei} style={{ padding: "3px 10px", borderRadius: 6, fontSize: 10, fontWeight: 600, background: ev.type === "만료" ? "#2D1B1B" : "#1B2333", color: ev.type === "만료" ? "#FF6B6B" : "#6BA3FF", border: `1px solid ${ev.type === "만료" ? "#8B3A3A30" : "#2E4A7A30"}` }}>
+                          {ev.type} {ev.date.slice(5)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {selectedMonth && selectedItems.length === 0 && (
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #1A1F2B", textAlign: "center", padding: "20px 0", color: "#4A5568", fontSize: 12 }}>해당 월에 만료/갱신 예정 계약이 없습니다.</div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ─── Contract Detail with Audit Log ───
+const ContractDetailWithAudit = ({ contract, onToggleStatus, onEdit, onDelete }) => {
+  const [tab, setTab] = useState("info");
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const c = contract;
+
+  const loadAudit = async () => {
+    setAuditLoading(true);
+    const { data, error } = await supabase.from("audit_log").select("*").eq("contract_id", c.id).order("created_at", { ascending: false });
+    if (!error && data) setAuditLogs(data);
+    setAuditLoading(false);
+  };
+
+  useEffect(() => { if (tab === "history") loadAudit(); }, [tab, c.id]);
+
+  const actionLabels = { create: "등록", update: "수정", delete: "삭제", restore: "복구" };
+  const actionColors = { create: "#66FFCC", update: "#6BA3FF", delete: "#FF6B6B", restore: "#FFE066" };
+
+  const tabStyle = (active) => ({ flex: 1, padding: "10px 0", border: "none", borderBottom: active ? "2px solid #4A6FA5" : "2px solid transparent", background: "transparent", color: active ? "#E8ECF2" : "#6B7280", fontSize: 13, fontWeight: active ? 600 : 400, cursor: "pointer", fontFamily: "inherit" });
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}><div><div style={{ fontSize: 20, fontWeight: 700 }}>{c.vendor}</div><div style={{ fontSize: 14, color: "#8892A0" }}>{c.name}</div></div><div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}><StatusBadge urgency={getUrgencyLevel(c)} autoRenew={c.auto_renew} />{c.status === "terminated" && <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: "#2D1B1B", color: "#FF6B6B", border: "1px solid #8B3A3A" }}>계약 종료</span>}</div></div>
+
+      <div style={{ display: "flex", borderBottom: "1px solid #1A1F2B", marginBottom: 20 }}>
+        <button onClick={() => setTab("info")} style={tabStyle(tab === "info")}>계약 정보</button>
+        <button onClick={() => setTab("history")} style={tabStyle(tab === "history")}>수정 이력</button>
+      </div>
+
+      {tab === "info" && (
+        <div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
+            {[{ l: "스튜디오", v: c.studio }, { l: "유형", v: c.type }, { l: "공급사", v: c.supplier || "—" }, { l: "시작일", v: c.start_date }, { l: "종료일", v: c.end_date }, { l: "갱신 통보일", v: c.renewal_date || "—" }, { l: "연간 비용", v: formatCurrency(c.annual_cost, c.currency) }, { l: "자동갱신", v: c.auto_renew ? `ON (${c.auto_renew_notice_days}일 전)` : "OFF" }, { l: "남은 일수", v: (() => { const d = getDaysUntil(c.end_date); return d > 0 ? `${d}일` : `${Math.abs(d)}일 경과`; })() }, { l: "담당자", v: c.owner_name || "—" }, { l: "담당자 이메일", v: c.owner_email || "—" }].map((item, i) => (<div key={i} style={{ padding: "10px 14px", background: "#0D1017", borderRadius: 10, border: "1px solid #1A1F2B" }}><div style={{ fontSize: 10, color: "#6B7280", textTransform: "uppercase", marginBottom: 4 }}>{item.l}</div><div style={{ fontSize: 14, fontWeight: 500 }}>{item.v}</div></div>))}
+          </div>
+          {c.wiki_url && (
+            <div style={{ padding: "12px 14px", background: "#0D1017", borderRadius: 10, border: "1px solid #2E4A7A", marginBottom: 12 }}>
+              <div style={{ fontSize: 10, color: "#6B7280", textTransform: "uppercase", marginBottom: 4 }}>Wiki / 문서 링크</div>
+              {(() => { try { const u = new URL(c.wiki_url); return (u.protocol === "http:" || u.protocol === "https:") ? <a href={c.wiki_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: "#6BA3FF", textDecoration: "none", wordBreak: "break-all" }}>{c.wiki_url}</a> : <span style={{ fontSize: 13, color: "#8892A0", wordBreak: "break-all" }}>{c.wiki_url}</span>; } catch { return <span style={{ fontSize: 13, color: "#8892A0", wordBreak: "break-all" }}>{c.wiki_url}</span>; } })()}
+            </div>
+          )}
+          {c.installment_enabled && c.installment_schedule && c.installment_schedule.length > 0 && (
+            <div style={{ padding: "14px", background: "#0D1017", borderRadius: 10, border: "1px solid #1A1F2B", marginBottom: 12 }}>
+              <div style={{ fontSize: 10, color: "#6B7280", textTransform: "uppercase", marginBottom: 10 }}>분할 결제 일정</div>
+              {c.installment_schedule.map((inst, idx) => {
+                const dtp = getDaysUntil(inst.date); const isPast = dtp < 0; const isNear = dtp >= 0 && dtp <= 14;
+                return (
+                  <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", borderRadius: 8, marginBottom: 4, background: isNear ? "#2D2A18" : "transparent", border: isNear ? "1px solid #8B833A40" : "1px solid transparent" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: inst.paid ? "#66FFCC" : isPast ? "#FF6B6B" : "#8892A0", minWidth: 30 }}>{inst.label}</span>
+                      <span style={{ fontSize: 12, color: "#8892A0" }}>{inst.date}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "#E8ECF2" }}>{formatCurrency(inst.amount, c.currency)}</span>
+                      {inst.paid ? <span style={{ fontSize: 10, color: "#66FFCC", background: "#1B2D2A", padding: "2px 8px", borderRadius: 10 }}>완료</span> : isNear ? <span style={{ fontSize: 10, color: "#FFE066", background: "#2D2A18", padding: "2px 8px", borderRadius: 10 }}>D-{dtp}</span> : isPast ? <span style={{ fontSize: 10, color: "#FF6B6B", background: "#2D1B1B", padding: "2px 8px", borderRadius: 10 }}>미결제</span> : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {c.notes && <div style={{ padding: "12px 14px", background: "#0D1017", borderRadius: 10, border: "1px solid #1A1F2B", marginBottom: 20 }}><div style={{ fontSize: 10, color: "#6B7280", marginBottom: 6 }}>메모</div><div style={{ fontSize: 13, color: "#8892A0", lineHeight: 1.6 }}>{c.notes}</div></div>}
+        </div>
+      )}
+
+      {tab === "history" && (
+        <div>
+          {auditLoading ? <div style={{ textAlign: "center", padding: 40, color: "#6B7280", fontSize: 13 }}>로딩 중...</div> : auditLogs.length === 0 ? <div style={{ textAlign: "center", padding: 40, color: "#4A5568", fontSize: 13 }}>수정 이력이 없습니다.</div> : (
+            <div style={{ maxHeight: 400, overflow: "auto" }}>
+              {auditLogs.map((log, i) => (
+                <div key={log.id || i} style={{ padding: "14px 16px", background: "#0D1017", borderRadius: 10, border: "1px solid #1A1F2B", marginBottom: 8, animation: `fadeIn 0.3s ease ${i * 0.03}s both` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: log.field_name ? 8 : 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, background: `${actionColors[log.action]}15`, color: actionColors[log.action], border: `1px solid ${actionColors[log.action]}30` }}>{actionLabels[log.action] || log.action}</span>
+                      {log.field_name && <span style={{ fontSize: 12, color: "#8892A0" }}>{fieldLabels[log.field_name] || log.field_name}</span>}
+                    </div>
+                    <span style={{ fontSize: 11, color: "#4A5568" }}>{new Date(log.created_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+                  </div>
+                  {log.field_name && log.action === "update" && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, padding: "8px 10px", background: "#111620", borderRadius: 6 }}>
+                      <span style={{ color: "#FF6B6B", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={log.old_value}>{log.old_value || "(비어있음)"}</span>
+                      <span style={{ color: "#4A5568", flexShrink: 0 }}>→</span>
+                      <span style={{ color: "#66FFCC", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={log.new_value}>{log.new_value || "(비어있음)"}</span>
+                    </div>
+                  )}
+                  {log.changed_by && <div style={{ fontSize: 11, color: "#4A5568", marginTop: 6 }}>변경자: {log.changed_by}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 10, justifyContent: "space-between", marginTop: 20, paddingTop: 16, borderTop: "1px solid #1A1F2B" }}>
+        <button onClick={() => onToggleStatus(c)} style={{ padding: "8px 18px", borderRadius: 8, border: `1px solid ${c.status === "active" ? "#8B833A" : "#3A8B7A"}`, background: "transparent", color: c.status === "active" ? "#FFE066" : "#66FFCC", fontSize: 12, cursor: "pointer" }}>{c.status === "active" ? "⏹ 종료 처리" : "▶ 재활성화"}</button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={() => onDelete(c)} style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid #8B3A3A", background: "transparent", color: "#FF6B6B", fontSize: 12, cursor: "pointer" }}>삭제</button>
+          <button onClick={() => onEdit(c)} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #4A6FA5, #3A5A8A)", color: "#E8ECF2", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>수정</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ═══════════════════════════════
 // ─── MAIN COMPONENT ───
 // ═══════════════════════════════
@@ -362,6 +629,8 @@ export default function ContractTracker() {
   const [notifSettings, setNotifSettings] = useState({ slackEnabled: false, slackWebhookUrl: "", slackChannel: "", emailEnabled: false, emailRecipients: "" });
   const [showNotifSettings, setShowNotifSettings] = useState(false);
   const [showOptionsManager, setShowOptionsManager] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deletedContracts, setDeletedContracts] = useState([]);
   const [customStudios, setCustomStudios] = useState(["KRAFTON", "PalM"]);
   const [customTypes, setCustomTypes] = useState(["SaaS", "Cloud Infrastructure", "License", "Service", "Maintenance", "Consulting"]);
 
@@ -391,35 +660,56 @@ export default function ContractTracker() {
   const showToast = useCallback((msg, type = "info") => setToast({ message: msg, type }), []);
 
   const loadContracts = useCallback(async () => {
-    const { data, error } = await supabase.from("contracts").select("*").order("end_date", { ascending: true });
+    const { data, error } = await supabase.from("contracts").select("*").eq("is_deleted", false).order("end_date", { ascending: true });
     if (error) { showToast("데이터 로딩 실패: " + error.message, "error"); return; }
     setContracts(data.map(fromDB));
+  }, [showToast]);
+
+  const loadDeletedContracts = useCallback(async () => {
+    const { data, error } = await supabase.from("contracts").select("*").eq("is_deleted", true).order("deleted_at", { ascending: false });
+    if (error) { showToast("휴지통 로딩 실패: " + error.message, "error"); return; }
+    setDeletedContracts(data.map(fromDB));
   }, [showToast]);
 
   useEffect(() => { loadContracts().then(() => setLoading(false)); }, [loadContracts]);
 
   const saveContract = async (c) => {
     if (c.id) {
+      const oldContract = contracts.find(x => x.id === c.id);
       const { error } = await supabase.from("contracts").update(toDB(c)).eq("id", c.id);
       if (error) { showToast("수정 실패: " + error.message, "error"); return; }
+      if (oldContract) {
+        const changes = diffContract(oldContract, c);
+        if (changes.length > 0) await writeAuditLog(c.id, "update", changes);
+      }
     } else {
-      const { error } = await supabase.from("contracts").insert(toDB(c));
+      const { data, error } = await supabase.from("contracts").insert(toDB(c)).select("id").single();
       if (error) { showToast("등록 실패: " + error.message, "error"); return; }
+      if (data) await writeAuditLog(data.id, "create");
     }
     await loadContracts(); setShowForm(false); setEditContract(null);
     showToast("저장 완료", "success");
   };
 
   const deleteContract = async (id) => {
-    const { error } = await supabase.from("contracts").delete().eq("id", id);
+    const { error } = await supabase.from("contracts").update({ is_deleted: true, deleted_at: new Date().toISOString() }).eq("id", id);
     if (error) { showToast("삭제 실패", "error"); return; }
-    await loadContracts(); setShowDetail(null); showToast("삭제 완료", "success");
+    await writeAuditLog(id, "delete");
+    await loadContracts(); setShowDetail(null); setDeleteTarget(null); showToast("휴지통으로 이동되었습니다.", "success");
+  };
+
+  const restoreContract = async (id) => {
+    const { error } = await supabase.from("contracts").update({ is_deleted: false, deleted_at: null }).eq("id", id);
+    if (error) { showToast("복구 실패", "error"); return; }
+    await writeAuditLog(id, "restore");
+    await loadDeletedContracts(); await loadContracts(); showToast("계약이 복구되었습니다.", "success");
   };
 
   const toggleContractStatus = async (c) => {
     const newStatus = c.status === "active" ? "terminated" : "active";
     const { error } = await supabase.from("contracts").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("id", c.id);
     if (error) { showToast("상태 변경 실패", "error"); return; }
+    await writeAuditLog(c.id, "update", [{ field_name: "status", old_value: c.status, new_value: newStatus }]);
     await loadContracts(); setShowDetail(null);
     showToast(newStatus === "terminated" ? "계약이 종료 처리되었습니다." : "계약이 재활성화되었습니다.", "success");
   };
@@ -462,6 +752,7 @@ export default function ContractTracker() {
     { id: "notifications", label: "알림 센터", icon: "🔔", badge: activeNotifs.length },
     { id: "list", label: "계약 목록", icon: "☰" },
     { id: "types", label: "유형별", icon: "⬡" },
+    { id: "trash", label: "휴지통", icon: "🗑" },
   ];
 
   if (loading) return (<div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}><div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #4A6FA5, #3A5A8A)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700 }}>C</div><div style={{ fontSize: 14, color: "#6B7280" }}>데이터 불러오는 중...</div></div>);
@@ -490,7 +781,7 @@ export default function ContractTracker() {
       <div style={{ display: "flex", minHeight: "calc(100vh - 69px)" }}>
         {/* Sidebar */}
         <div style={{ width: 180, padding: "20px 12px", borderRight: "1px solid #1A1F2B", flexShrink: 0 }}>
-          {navItems.map(item => (<button key={item.id} onClick={() => setView(item.id)} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 14px", borderRadius: 8, border: "none", background: view === item.id ? "#1A1F2B" : "transparent", color: view === item.id ? "#E8ECF2" : "#6B7280", fontSize: 13, cursor: "pointer", fontFamily: "inherit", marginBottom: 4, textAlign: "left" }}><span style={{ fontSize: 16 }}>{item.icon}</span>{item.label}{item.badge > 0 && <span style={{ marginLeft: "auto", background: criticalCount > 0 && item.id === "notifications" ? "#FF4444" : "#4A6FA5", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10 }}>{item.badge}</span>}</button>))}
+          {navItems.map(item => (<button key={item.id} onClick={() => { setView(item.id); if (item.id === "trash") loadDeletedContracts(); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 14px", borderRadius: 8, border: "none", background: view === item.id ? "#1A1F2B" : "transparent", color: view === item.id ? "#E8ECF2" : "#6B7280", fontSize: 13, cursor: "pointer", fontFamily: "inherit", marginBottom: 4, textAlign: "left" }}><span style={{ fontSize: 16 }}>{item.icon}</span>{item.label}{item.badge > 0 && <span style={{ marginLeft: "auto", background: criticalCount > 0 && item.id === "notifications" ? "#FF4444" : "#4A6FA5", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10 }}>{item.badge}</span>}</button>))}
           <div style={{ margin: "20px 14px", padding: "14px 0", borderTop: "1px solid #1A1F2B" }}>
             <div style={{ fontSize: 22, fontWeight: 700 }}>{stats.total}</div>
             <div style={{ fontSize: 11, color: "#6B7280", marginBottom: 8 }}>활성 계약</div>
@@ -505,6 +796,7 @@ export default function ContractTracker() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
               {[{ label: "전체 계약", value: stats.total, sub: "건", color: "#4A6FA5" }, { label: "연간 비용 (USD)", value: formatCurrency(stats.totalCostUSD), sub: "/yr", color: "#6BA3FF" }, { label: "자동갱신", value: stats.autoRenewCount, sub: "건", color: "#00D4AA" }, { label: "알림", value: activeNotifs.length, sub: "건", color: criticalCount > 0 ? "#FF6B6B" : "#FFE066" }].map((card, i) => (<div key={i} onClick={i === 3 ? () => setView("notifications") : undefined} style={{ padding: "20px 22px", background: "#111620", border: "1px solid #1A1F2B", borderRadius: 14, cursor: i === 3 ? "pointer" : "default", animation: `fadeIn 0.4s ease ${i * 0.08}s both` }}><div style={{ fontSize: 10, color: "#6B7280", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 10 }}>{card.label}</div><div style={{ fontSize: 26, fontWeight: 700, color: card.color }}>{card.value}<span style={{ fontSize: 12, color: "#4A5568", marginLeft: 4 }}>{card.sub}</span></div></div>))}
             </div>
+            <TimelineCalendar contracts={contracts} onSelectContract={setShowDetail} />
             <div style={{ fontSize: 14, fontWeight: 600, color: "#8892A0", marginBottom: 14 }}>⚡ 주의가 필요한 계약</div>
             {contracts.filter(c => c.status === "active" && (() => { const d = Math.min(getDaysUntil(c.end_date), getDaysUntil(c.renewal_date)); return d > 0 && d <= 90; })()).sort((a, b) => Math.min(getDaysUntil(a.end_date), getDaysUntil(a.renewal_date)) - Math.min(getDaysUntil(b.end_date), getDaysUntil(b.renewal_date))).map((c, i) => { const urg = getUrgencyLevel(c); const dl = Math.min(getDaysUntil(c.end_date), getDaysUntil(c.renewal_date)); const uc = urgencyColors[urg]; return (<div key={c.id} onClick={() => setShowDetail(c)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", background: uc.bg, border: `1px solid ${uc.border}40`, borderRadius: 12, marginBottom: 8, cursor: "pointer", animation: `slideIn 0.3s ease ${i * 0.06}s both` }}><div style={{ display: "flex", alignItems: "center", gap: 16 }}><StatusBadge urgency={urg} autoRenew={c.auto_renew} /><div><div style={{ fontSize: 14, fontWeight: 600 }}>{c.vendor}</div><div style={{ fontSize: 12, color: "#6B7280" }}>{c.name}{c.owner_name ? ` · ${c.owner_name}` : ""}</div></div></div><div style={{ textAlign: "right" }}><div style={{ fontSize: 18, fontWeight: 700, color: uc.text }}>D-{dl}</div><div style={{ fontSize: 11, color: "#6B7280" }}>{c.end_date}</div></div></div>); })}
             {contracts.filter(c => c.status === "active" && (() => { const d = Math.min(getDaysUntil(c.end_date), getDaysUntil(c.renewal_date)); return d > 0 && d <= 90; })()).length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#4A5568", fontSize: 13 }}>90일 이내 만료 예정인 계약이 없습니다 ✓</div>}
@@ -530,7 +822,7 @@ export default function ContractTracker() {
             <div style={{ borderRadius: 12, border: "1px solid #1A1F2B", overflow: "hidden" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead><tr style={{ background: "#111620" }}>{["상태", "벤더", "계약명", "유형", "담당자", "종료일", "D-Day", "연간비용", ""].map((h, i) => <th key={i} style={{ padding: "12px 16px", textAlign: "left", fontSize: 10, color: "#6B7280", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 600, borderBottom: "1px solid #1A1F2B" }}>{h}</th>)}</tr></thead>
-                <tbody>{filtered.map(c => { const urg = getUrgencyLevel(c); const dl = Math.min(getDaysUntil(c.end_date), getDaysUntil(c.renewal_date)); const uc = urgencyColors[urg]; const isTerm = c.status === "terminated"; return (<tr key={c.id} onClick={() => setShowDetail(c)} style={{ borderBottom: "1px solid #1A1F2B", cursor: "pointer", opacity: isTerm ? 0.5 : 1 }} onMouseEnter={e => e.currentTarget.style.background="#111620"} onMouseLeave={e => e.currentTarget.style.background="transparent"}><td style={{ padding: "12px 16px" }}>{isTerm ? <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: "#1A1D23", color: "#6B7280", border: "1px solid #2E3440" }}>종료</span> : <StatusBadge urgency={urg} autoRenew={c.auto_renew} />}</td><td style={{ padding: "12px 16px", fontWeight: 600 }}>{c.vendor}</td><td style={{ padding: "12px 16px", color: "#8892A0" }}>{c.name}</td><td style={{ padding: "12px 16px" }}><span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, background: "#1A1F2B", color: "#8892A0" }}>{c.type}</span></td><td style={{ padding: "12px 16px", fontSize: 12, color: "#8892A0" }}>{c.owner_name || "—"}</td><td style={{ padding: "12px 16px", color: "#8892A0" }}>{c.end_date}</td><td style={{ padding: "12px 16px", fontWeight: 700, color: isTerm ? "#6B7280" : uc.text }}>{isTerm ? "종료" : dl > 0 ? `D-${dl}` : dl === 0 ? "D-Day" : `D+${Math.abs(dl)}`}</td><td style={{ padding: "12px 16px", fontWeight: 600 }}>{formatCurrency(c.annual_cost, c.currency)}</td><td style={{ padding: "12px 16px", display: "flex", gap: 6 }}><button onClick={e => { e.stopPropagation(); setEditContract(c); setShowForm(true); }} style={{ background: "none", border: "1px solid #2E3440", borderRadius: 6, color: "#6B7280", padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>수정</button><button onClick={e => { e.stopPropagation(); if(confirm(`"${c.vendor} — ${c.name}" 계약을 삭제하시겠습니까?`)) deleteContract(c.id); }} style={{ background: "none", border: "1px solid #8B3A3A40", borderRadius: 6, color: "#FF6B6B", padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>삭제</button></td></tr>); })}</tbody>
+                <tbody>{filtered.map(c => { const urg = getUrgencyLevel(c); const dl = Math.min(getDaysUntil(c.end_date), getDaysUntil(c.renewal_date)); const uc = urgencyColors[urg]; const isTerm = c.status === "terminated"; return (<tr key={c.id} onClick={() => setShowDetail(c)} style={{ borderBottom: "1px solid #1A1F2B", cursor: "pointer", opacity: isTerm ? 0.5 : 1 }} onMouseEnter={e => e.currentTarget.style.background="#111620"} onMouseLeave={e => e.currentTarget.style.background="transparent"}><td style={{ padding: "12px 16px" }}>{isTerm ? <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: "#1A1D23", color: "#6B7280", border: "1px solid #2E3440" }}>종료</span> : <StatusBadge urgency={urg} autoRenew={c.auto_renew} />}</td><td style={{ padding: "12px 16px", fontWeight: 600 }}>{c.vendor}</td><td style={{ padding: "12px 16px", color: "#8892A0" }}>{c.name}</td><td style={{ padding: "12px 16px" }}><span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, background: "#1A1F2B", color: "#8892A0" }}>{c.type}</span></td><td style={{ padding: "12px 16px", fontSize: 12, color: "#8892A0" }}>{c.owner_name || "—"}</td><td style={{ padding: "12px 16px", color: "#8892A0" }}>{c.end_date}</td><td style={{ padding: "12px 16px", fontWeight: 700, color: isTerm ? "#6B7280" : uc.text }}>{isTerm ? "종료" : dl > 0 ? `D-${dl}` : dl === 0 ? "D-Day" : `D+${Math.abs(dl)}`}</td><td style={{ padding: "12px 16px", fontWeight: 600 }}>{formatCurrency(c.annual_cost, c.currency)}</td><td style={{ padding: "12px 16px", display: "flex", gap: 6 }}><button onClick={e => { e.stopPropagation(); setEditContract(c); setShowForm(true); }} style={{ background: "none", border: "1px solid #2E3440", borderRadius: 6, color: "#6B7280", padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>수정</button><button onClick={e => { e.stopPropagation(); setDeleteTarget(c); }} style={{ background: "none", border: "1px solid #8B3A3A40", borderRadius: 6, color: "#FF6B6B", padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>삭제</button></td></tr>); })}</tbody>
               </table>
               {filtered.length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#4A5568", fontSize: 13 }}>검색 결과 없음</div>}
             </div>
@@ -543,50 +835,41 @@ export default function ContractTracker() {
               {existingTypes.map(type => { const tc = contracts.filter(c => c.type === type && c.status === "active"); const cost = tc.reduce((s, c) => s + (c.currency === "USD" ? (c.annual_cost||0) : 0), 0); return (<div key={type} style={{ padding: 20, background: "#111620", border: "1px solid #1A1F2B", borderRadius: 14 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}><div><div style={{ fontSize: 16, fontWeight: 700 }}>{type}</div><div style={{ fontSize: 11, color: "#6B7280" }}>{tc.length}건 활성</div></div><div style={{ fontSize: 18, fontWeight: 700, color: "#4A6FA5" }}>{formatCurrency(cost)}</div></div>{tc.map(c => { const urg = getUrgencyLevel(c); const uc = urgencyColors[urg]; const dl = Math.min(getDaysUntil(c.end_date), getDaysUntil(c.renewal_date)); return (<div key={c.id} onClick={() => setShowDetail(c)} style={{ padding: "10px 12px", borderRadius: 8, background: "#0B0E14", border: "1px solid #1A1F2B", marginBottom: 6, cursor: "pointer", display: "flex", justifyContent: "space-between" }}><div><div style={{ fontSize: 12, fontWeight: 500 }}>{c.vendor} — {c.name}</div><div style={{ fontSize: 10, color: "#6B7280" }}>{c.owner_name || c.studio}</div></div><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 12, fontWeight: 600, color: uc.text }}>D{dl > 0 ? `-${dl}` : `+${Math.abs(dl)}`}</span><span style={{ width: 6, height: 6, borderRadius: "50%", background: uc.dot }} /></div></div>); })}</div>); })}
             </div>
           </div>)}
+
+          {/* Trash */}
+          {view === "trash" && (<div style={{ animation: "fadeIn 0.4s ease" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <div><div style={{ fontSize: 18, fontWeight: 700 }}>🗑 휴지통</div><div style={{ fontSize: 12, color: "#6B7280", marginTop: 4 }}>삭제된 계약은 30일 후 완전 삭제됩니다.</div></div>
+            </div>
+            {deletedContracts.length === 0 ? <div style={{ textAlign: "center", padding: 60, color: "#4A5568", fontSize: 13 }}>휴지통이 비어 있습니다.</div> : (
+              <div style={{ borderRadius: 12, border: "1px solid #1A1F2B", overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead><tr style={{ background: "#111620" }}>{["벤더", "계약명", "유형", "종료일", "삭제일", "상태", ""].map((h, i) => <th key={i} style={{ padding: "12px 16px", textAlign: "left", fontSize: 10, color: "#6B7280", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 600, borderBottom: "1px solid #1A1F2B" }}>{h}</th>)}</tr></thead>
+                  <tbody>{deletedContracts.map(c => {
+                    const deletedDate = c.deleted_at ? new Date(c.deleted_at) : new Date();
+                    const daysSinceDelete = Math.floor((new Date() - deletedDate) / 86400000);
+                    const daysUntilPurge = 30 - daysSinceDelete;
+                    const isNearPurge = daysUntilPurge <= 7;
+                    return (<tr key={c.id} style={{ borderBottom: "1px solid #1A1F2B", opacity: 0.8 }}>
+                      <td style={{ padding: "12px 16px", fontWeight: 600 }}>{c.vendor}</td>
+                      <td style={{ padding: "12px 16px", color: "#8892A0" }}>{c.name}</td>
+                      <td style={{ padding: "12px 16px" }}><span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, background: "#1A1F2B", color: "#8892A0" }}>{c.type}</span></td>
+                      <td style={{ padding: "12px 16px", color: "#8892A0" }}>{c.end_date}</td>
+                      <td style={{ padding: "12px 16px", color: "#6B7280", fontSize: 12 }}>{deletedDate.toLocaleDateString("ko-KR")}</td>
+                      <td style={{ padding: "12px 16px" }}>{daysUntilPurge <= 0 ? <span style={{ fontSize: 11, color: "#FF4444", fontWeight: 600 }}>완전 삭제 대상</span> : isNearPurge ? <span style={{ fontSize: 11, color: "#FF6B6B", fontWeight: 600 }}>{daysUntilPurge}일 후 완전 삭제</span> : <span style={{ fontSize: 11, color: "#6B7280" }}>{daysUntilPurge}일 남음</span>}</td>
+                      <td style={{ padding: "12px 16px" }}><button onClick={() => restoreContract(c.id)} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #3A8B7A", background: "transparent", color: "#66FFCC", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>복구</button></td>
+                    </tr>);
+                  })}</tbody>
+                </table>
+              </div>
+            )}
+          </div>)}
         </div>
       </div>
 
       {/* Modals */}
-      <Modal isOpen={!!showDetail} onClose={() => setShowDetail(null)} title="계약 상세">
-        {showDetail && (<div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}><div><div style={{ fontSize: 20, fontWeight: 700 }}>{showDetail.vendor}</div><div style={{ fontSize: 14, color: "#8892A0" }}>{showDetail.name}</div></div><div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}><StatusBadge urgency={getUrgencyLevel(showDetail)} autoRenew={showDetail.auto_renew} />{showDetail.status === "terminated" && <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: "#2D1B1B", color: "#FF6B6B", border: "1px solid #8B3A3A" }}>계약 종료</span>}</div></div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
-            {[{ l: "스튜디오", v: showDetail.studio }, { l: "유형", v: showDetail.type }, { l: "공급사", v: showDetail.supplier || "—" }, { l: "시작일", v: showDetail.start_date }, { l: "종료일", v: showDetail.end_date }, { l: "갱신 통보일", v: showDetail.renewal_date || "—" }, { l: "연간 비용", v: formatCurrency(showDetail.annual_cost, showDetail.currency) }, { l: "자동갱신", v: showDetail.auto_renew ? `ON (${showDetail.auto_renew_notice_days}일 전)` : "OFF" }, { l: "남은 일수", v: (() => { const d = getDaysUntil(showDetail.end_date); return d > 0 ? `${d}일` : `${Math.abs(d)}일 경과`; })() }, { l: "담당자", v: showDetail.owner_name || "—" }, { l: "담당자 이메일", v: showDetail.owner_email || "—" }].map((item, i) => (<div key={i} style={{ padding: "10px 14px", background: "#0D1017", borderRadius: 10, border: "1px solid #1A1F2B" }}><div style={{ fontSize: 10, color: "#6B7280", textTransform: "uppercase", marginBottom: 4 }}>{item.l}</div><div style={{ fontSize: 14, fontWeight: 500 }}>{item.v}</div></div>))}
-          </div>
-          {showDetail.wiki_url && (
-            <div style={{ padding: "12px 14px", background: "#0D1017", borderRadius: 10, border: "1px solid #2E4A7A", marginBottom: 12 }}>
-              <div style={{ fontSize: 10, color: "#6B7280", textTransform: "uppercase", marginBottom: 4 }}>📎 Wiki / 문서 링크</div>
-              {(() => { try { const u = new URL(showDetail.wiki_url); return (u.protocol === "http:" || u.protocol === "https:") ? <a href={showDetail.wiki_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: "#6BA3FF", textDecoration: "none", wordBreak: "break-all" }}>{showDetail.wiki_url}</a> : <span style={{ fontSize: 13, color: "#8892A0", wordBreak: "break-all" }}>{showDetail.wiki_url}</span>; } catch { return <span style={{ fontSize: 13, color: "#8892A0", wordBreak: "break-all" }}>{showDetail.wiki_url}</span>; } })()}
-            </div>
-          )}
-          {showDetail.installment_enabled && showDetail.installment_schedule && showDetail.installment_schedule.length > 0 && (
-            <div style={{ padding: "14px", background: "#0D1017", borderRadius: 10, border: "1px solid #1A1F2B", marginBottom: 12 }}>
-              <div style={{ fontSize: 10, color: "#6B7280", textTransform: "uppercase", marginBottom: 10 }}>💳 분할 결제 일정</div>
-              {showDetail.installment_schedule.map((inst, idx) => {
-                const dtp = getDaysUntil(inst.date);
-                const isPast = dtp < 0;
-                const isNear = dtp >= 0 && dtp <= 14;
-                return (
-                  <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", borderRadius: 8, marginBottom: 4, background: isNear ? "#2D2A18" : "transparent", border: isNear ? "1px solid #8B833A40" : "1px solid transparent" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: inst.paid ? "#66FFCC" : isPast ? "#FF6B6B" : "#8892A0", minWidth: 30 }}>{inst.label}</span>
-                      <span style={{ fontSize: 12, color: "#8892A0" }}>{inst.date}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "#E8ECF2" }}>{formatCurrency(inst.amount, showDetail.currency)}</span>
-                      {inst.paid ? <span style={{ fontSize: 10, color: "#66FFCC", background: "#1B2D2A", padding: "2px 8px", borderRadius: 10 }}>완료</span> : isNear ? <span style={{ fontSize: 10, color: "#FFE066", background: "#2D2A18", padding: "2px 8px", borderRadius: 10 }}>D-{dtp}</span> : isPast ? <span style={{ fontSize: 10, color: "#FF6B6B", background: "#2D1B1B", padding: "2px 8px", borderRadius: 10 }}>미결제</span> : null}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {showDetail.notes && <div style={{ padding: "12px 14px", background: "#0D1017", borderRadius: 10, border: "1px solid #1A1F2B", marginBottom: 20 }}><div style={{ fontSize: 10, color: "#6B7280", marginBottom: 6 }}>메모</div><div style={{ fontSize: 13, color: "#8892A0", lineHeight: 1.6 }}>{showDetail.notes}</div></div>}
-          <div style={{ display: "flex", gap: 10, justifyContent: "space-between" }}>
-            <button onClick={() => toggleContractStatus(showDetail)} style={{ padding: "8px 18px", borderRadius: 8, border: `1px solid ${showDetail.status === "active" ? "#8B833A" : "#3A8B7A"}`, background: "transparent", color: showDetail.status === "active" ? "#FFE066" : "#66FFCC", fontSize: 12, cursor: "pointer" }}>{showDetail.status === "active" ? "⏹ 종료 처리" : "▶ 재활성화"}</button>
-            <div style={{ display: "flex", gap: 10 }}><button onClick={() => { setEditContract(showDetail); setShowForm(true); setShowDetail(null); }} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #4A6FA5, #3A5A8A)", color: "#E8ECF2", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>수정</button></div>
-          </div>
-        </div>)}
+      <Modal isOpen={!!showDetail} onClose={() => setShowDetail(null)} title="계약 상세" width={650}>
+        {showDetail && (<ContractDetailWithAudit contract={showDetail} onToggleStatus={toggleContractStatus} onEdit={(c) => { setEditContract(c); setShowForm(true); setShowDetail(null); }} onDelete={(c) => { setDeleteTarget(c); setShowDetail(null); }} />)}
       </Modal>
 
       <Modal isOpen={showForm} onClose={() => { setShowForm(false); setEditContract(null); }} title={editContract ? "계약 수정" : "계약 등록"}>
@@ -622,6 +905,8 @@ export default function ContractTracker() {
           onClose={() => setShowOptionsManager(false)}
         />
       </Modal>
+
+      <DeleteConfirmModal isOpen={!!deleteTarget} contract={deleteTarget} onConfirm={deleteContract} onClose={() => setDeleteTarget(null)} />
     </div>
   );
 }
