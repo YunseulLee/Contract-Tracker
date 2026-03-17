@@ -30,7 +30,8 @@ export async function GET(request) {
     const { data: contracts, error } = await supabase
       .from("contracts")
       .select("*")
-      .eq("status", "active");
+      .eq("status", "active")
+      .eq("is_deleted", false);
 
     if (error) throw error;
 
