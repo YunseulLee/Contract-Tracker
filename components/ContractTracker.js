@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 
 // ─── Helpers ───
 const formatCurrency = (amount, currency = "USD") => currency === "KRW" ? `₩${(amount||0).toLocaleString()}` : `$${(amount||0).toLocaleString()}`;
-const getDaysUntil = (dateStr) => { if (!dateStr) return Infinity; const now = new Date(); now.setHours(0,0,0,0); return Math.ceil((new Date(dateStr) - now) / 86400000); };
+const getDaysUntil = (dateStr) => { if (!dateStr) return Infinity; const now = new Date(); now.setUTCHours(0,0,0,0); const target = new Date(dateStr + "T00:00:00Z"); return Math.ceil((target - now) / 86400000); };
 const getUrgencyLevel = (c) => { const m = Math.min(getDaysUntil(c.end_date), getDaysUntil(c.renewal_date)); if (m < 0) return "expired"; if (m <= 30) return "critical"; if (m <= 60) return "warning"; if (m <= 90) return "upcoming"; return "safe"; };
 const urgencyColors = { expired: { bg: "#2D1B1B", border: "#8B3A3A", text: "#FF6B6B", dot: "#FF4444" }, critical: { bg: "#2D2118", border: "#8B5E3A", text: "#FFB347", dot: "#FF8C00" }, warning: { bg: "#2D2A18", border: "#8B833A", text: "#FFE066", dot: "#FFD700" }, upcoming: { bg: "#1B2D2A", border: "#3A8B7A", text: "#66FFCC", dot: "#00D4AA" }, safe: { bg: "#1A1D23", border: "#2E3440", text: "#8892A0", dot: "#4A6FA5" } };
 
@@ -19,45 +19,6 @@ const Modal = ({ isOpen, onClose, title, children, width = 600 }) => { if (!isOp
 const InputField = ({ label, required, children }) => (<div style={{ marginBottom: 16 }}><label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#8892A0", marginBottom: 6, letterSpacing: "0.5px", textTransform: "uppercase" }}>{label} {required && <span style={{ color: "#FF6B6B" }}>*</span>}</label>{children}</div>);
 
 const inputStyle = { width: "100%", padding: "10px 14px", background: "#0D1017", border: "1px solid #2E3440", borderRadius: 10, color: "#E8ECF2", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
-
-// ─── Custom Date Input (YYYY-MM-DD, auto-tab) ───
-const DateInput = ({ value, onChange }) => {
-  const parts = (value || "").split("-");
-  const [y, setY] = useState(parts[0] || "");
-  const [m, setM] = useState(parts[1] || "");
-  const [d, setD] = useState(parts[2] || "");
-  const mRef = useRef(); const dRef = useRef();
-
-  useEffect(() => {
-    const p = (value || "").split("-");
-    setY(p[0] || ""); setM(p[1] || ""); setD(p[2] || "");
-  }, [value]);
-
-  const emit = (yy, mm, dd) => {
-    if (yy && mm && dd) onChange(`${yy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`);
-    else if (!yy && !mm && !dd) onChange("");
-  };
-
-  const seg = { background: "#0D1017", border: "1px solid #2E3440", borderRadius: 6, color: "#E8ECF2", fontSize: 13, fontFamily: "inherit", outline: "none", textAlign: "center", padding: "10px 2px" };
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-      <input style={{ ...seg, width: 52 }} maxLength={4} placeholder="YYYY" value={y}
-        onChange={e => { const v = e.target.value.replace(/\D/g,"").slice(0,4); setY(v); if (v.length === 4) mRef.current?.focus(); emit(v, m, d); }}
-      />
-      <span style={{ color: "#4A5568", fontSize: 12 }}>.</span>
-      <input ref={mRef} style={{ ...seg, width: 36 }} maxLength={2} placeholder="MM" value={m}
-        onChange={e => { const v = e.target.value.replace(/\D/g,"").slice(0,2); setM(v); if (v.length === 2) dRef.current?.focus(); emit(y, v, d); }}
-        onKeyDown={e => { if (e.key === "Backspace" && !m) { setY(y.slice(0,-1)); e.target.previousSibling?.previousSibling?.focus(); } }}
-      />
-      <span style={{ color: "#4A5568", fontSize: 12 }}>.</span>
-      <input ref={dRef} style={{ ...seg, width: 36 }} maxLength={2} placeholder="DD" value={d}
-        onChange={e => { const v = e.target.value.replace(/\D/g,"").slice(0,2); setD(v); emit(y, m, v); }}
-        onKeyDown={e => { if (e.key === "Backspace" && !d) { setM(m.slice(0,-1)); mRef.current?.focus(); } }}
-      />
-    </div>
-  );
-};
 
 const Toast = ({ message, type, onClose }) => { useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]); const colors = { success: { bg: "#1B2D2A", border: "#3A8B7A", text: "#66FFCC" }, error: { bg: "#2D1B1B", border: "#8B3A3A", text: "#FF6B6B" }, info: { bg: "#1B2333", border: "#2E4A7A", text: "#6BA3FF" } }; const c = colors[type] || colors.info; return <div style={{ position: "fixed", top: 20, right: 20, zIndex: 9999, padding: "14px 22px", borderRadius: 12, background: c.bg, border: `1px solid ${c.border}`, color: c.text, fontSize: 13, fontWeight: 500, boxShadow: "0 8px 32px rgba(0,0,0,0.4)", animation: "fadeIn 0.3s ease", maxWidth: 400 }}>{message}</div>; };
 
@@ -82,20 +43,20 @@ const EditableSelect = ({ value, onChange, options, placeholder }) => {
 
 // ─── Notification Generator ───
 const generateNotifications = (contracts) => {
-  const notifs = []; const today = new Date(); today.setHours(0,0,0,0);
+  const notifs = []; const today = new Date(); today.setUTCHours(0,0,0,0);
   contracts.forEach(c => {
     const dte = getDaysUntil(c.end_date); const dtr = getDaysUntil(c.renewal_date);
-    if (dte > 0 && dte <= 60) notifs.push({ id: `${c.id}-exp`, type: "expiry", urgency: dte <= 30 ? "critical" : "warning", title: `계약 만료 ${dte}일 전`, message: `${c.vendor} — ${c.name} 계약이 ${c.end_date}에 만료됩니다.`, vendor: c.vendor, contractName: c.name, daysLeft: dte, date: c.end_date, autoRenew: c.auto_renew, annualCost: c.annual_cost, currency: c.currency, studio: c.studio, ownerName: c.owner_name, ownerEmail: c.owner_email, wikiUrl: c.wiki_url || "" });
-    if (c.auto_renew && c.auto_renew_notice_days > 0) { const nd = new Date(c.end_date); nd.setDate(nd.getDate() - c.auto_renew_notice_days); const dtn = Math.ceil((nd - today) / 86400000); if (dtn <= 60 && dtn > -7) notifs.push({ id: `${c.id}-auto`, type: "auto_renew_notice", urgency: dtn <= 0 ? "critical" : dtn <= 7 ? "critical" : dtn <= 14 ? "warning" : "upcoming", title: dtn <= 0 ? "자동갱신 통지기한 경과" : `자동갱신 통지 ${dtn}일 전`, message: dtn <= 0 ? `${c.vendor}의 자동갱신 해지 통지기한이 경과했습니다.` : `${c.vendor}의 해지 통보 마감까지 ${dtn}일`, vendor: c.vendor, contractName: c.name, daysLeft: dtn, date: nd.toISOString().slice(0,10), autoRenew: true, annualCost: c.annual_cost, currency: c.currency, studio: c.studio, ownerName: c.owner_name, ownerEmail: c.owner_email, wikiUrl: c.wiki_url || "", noticeDays: c.auto_renew_notice_days }); }
-    if (dtr > 0 && dtr <= 60 && c.renewal_date) notifs.push({ id: `${c.id}-ren`, type: "renewal", urgency: dtr <= 30 ? "critical" : "warning", title: `갱신 통보일 ${dtr}일 전`, message: `${c.vendor} — ${c.name} 갱신 통보일: ${c.renewal_date}`, vendor: c.vendor, contractName: c.name, daysLeft: dtr, date: c.renewal_date, autoRenew: c.auto_renew, annualCost: c.annual_cost, currency: c.currency, studio: c.studio, ownerName: c.owner_name, ownerEmail: c.owner_email, wikiUrl: c.wiki_url || "" });
-    if (dte < 0 && dte >= -30) notifs.push({ id: `${c.id}-expired`, type: "expired", urgency: "expired", title: `계약 만료 (${Math.abs(dte)}일 경과)`, message: `${c.vendor} — ${c.name} 만료됨`, vendor: c.vendor, contractName: c.name, daysLeft: dte, date: c.end_date, autoRenew: c.auto_renew, annualCost: c.annual_cost, currency: c.currency, studio: c.studio, ownerName: c.owner_name, ownerEmail: c.owner_email, wikiUrl: c.wiki_url || "" });
+    if (dte > 0 && dte <= 60) notifs.push({ id: `${c.id}-exp`, type: "expiry", urgency: dte <= 30 ? "critical" : "warning", title: `계약 만료 ${dte}일 전`, message: `${c.vendor} — ${c.name} 계약이 ${c.end_date}에 만료됩니다.`, vendor: c.vendor, contractName: c.name, daysLeft: dte, date: c.end_date, autoRenew: c.auto_renew, annualCost: c.annual_cost, currency: c.currency, studio: c.studio, ownerName: c.owner_name, ownerEmail: c.owner_email });
+    if (c.auto_renew && c.auto_renew_notice_days > 0) { const nd = new Date(c.end_date); nd.setDate(nd.getDate() - c.auto_renew_notice_days); const dtn = Math.ceil((nd - today) / 86400000); if (dtn <= 30 && dtn > -7) notifs.push({ id: `${c.id}-auto`, type: "auto_renew_notice", urgency: dtn <= 0 ? "critical" : dtn <= 14 ? "warning" : "upcoming", title: dtn <= 0 ? "자동갱신 통지기한 경과" : `자동갱신 통지 ${dtn}일 전`, message: dtn <= 0 ? `${c.vendor}의 자동갱신 해지 통지기한이 경과했습니다.` : `${c.vendor}의 해지 통보 마감까지 ${dtn}일`, vendor: c.vendor, contractName: c.name, daysLeft: dtn, date: nd.toISOString().slice(0,10), autoRenew: true, annualCost: c.annual_cost, currency: c.currency, studio: c.studio, ownerName: c.owner_name, ownerEmail: c.owner_email, noticeDays: c.auto_renew_notice_days }); }
+    if (dtr > 0 && dtr <= 60 && c.renewal_date) notifs.push({ id: `${c.id}-ren`, type: "renewal", urgency: dtr <= 30 ? "critical" : "warning", title: `갱신 통보일 ${dtr}일 전`, message: `${c.vendor} — ${c.name} 갱신 통보일: ${c.renewal_date}`, vendor: c.vendor, contractName: c.name, daysLeft: dtr, date: c.renewal_date, autoRenew: c.auto_renew, annualCost: c.annual_cost, currency: c.currency, studio: c.studio, ownerName: c.owner_name, ownerEmail: c.owner_email });
+    if (dte < 0 && dte >= -30) notifs.push({ id: `${c.id}-expired`, type: "expired", urgency: "expired", title: `계약 만료 (${Math.abs(dte)}일 경과)`, message: `${c.vendor} — ${c.name} 만료됨`, vendor: c.vendor, contractName: c.name, daysLeft: dte, date: c.end_date, autoRenew: c.auto_renew, annualCost: c.annual_cost, currency: c.currency, studio: c.studio, ownerName: c.owner_name, ownerEmail: c.owner_email });
     // 분할 결제 알림
     if (c.installment_enabled && c.installment_schedule && c.installment_schedule.length > 0) {
       c.installment_schedule.forEach((inst, idx) => {
         if (inst.paid) return;
         const dtp = getDaysUntil(inst.date);
         if (dtp >= -7 && dtp <= 30) {
-          notifs.push({ id: `${c.id}-inst-${idx}`, type: "installment", urgency: dtp <= 0 ? "critical" : dtp <= 7 ? "critical" : dtp <= 14 ? "warning" : "upcoming", title: dtp <= 0 ? `분할결제 ${inst.label} 기한 경과` : `분할결제 ${inst.label} ${dtp}일 전`, message: `${c.vendor} — ${c.name} ${inst.label} 결제: ${formatCurrency(inst.amount, c.currency)} (${inst.date})`, vendor: c.vendor, contractName: c.name, daysLeft: dtp, date: inst.date, autoRenew: false, annualCost: inst.amount, currency: c.currency, studio: c.studio, ownerName: c.owner_name, ownerEmail: c.owner_email, wikiUrl: c.wiki_url || "" });
+          notifs.push({ id: `${c.id}-inst-${idx}`, type: "installment", urgency: dtp <= 0 ? "critical" : dtp <= 7 ? "warning" : "upcoming", title: dtp <= 0 ? `분할결제 ${inst.label} 기한 경과` : `분할결제 ${inst.label} ${dtp}일 전`, message: `${c.vendor} — ${c.name} ${inst.label} 결제: ${formatCurrency(inst.amount, c.currency)} (${inst.date})`, vendor: c.vendor, contractName: c.name, daysLeft: dtp, date: inst.date, autoRenew: false, annualCost: inst.amount, currency: c.currency, studio: c.studio, ownerName: c.owner_name, ownerEmail: c.owner_email });
         }
       });
     }
@@ -103,9 +64,9 @@ const generateNotifications = (contracts) => {
   return notifs.sort((a, b) => a.daysLeft - b.daysLeft);
 };
 
-const buildSlackMsg = (n) => `${n.urgency === "critical" || n.urgency === "expired" ? "🚨" : "⚠️"} *[Contract Alert] ${n.title}*\n> *벤더:* ${n.vendor}\n> *계약명:* ${n.contractName}\n> *스튜디오:* ${n.studio}${n.ownerName ? `\n> *담당자:* ${n.ownerName}` : ""}\n> *연간비용:* ${formatCurrency(n.annualCost, n.currency)}${n.wikiUrl ? `\n> *문서:* ${n.wikiUrl}` : ""}\n\n${n.message}\n\n_IT Procurement — Contract Tracker_`;
-const buildEmailSubject = (n) => `${n.urgency === "critical" ? "[긴급] " : "[알림] "}${n.vendor} — ${n.title}`;
-const buildEmailBody = (n) => `안녕하세요,\n\n${n.title}\n\n■ 벤더: ${n.vendor}\n■ 계약명: ${n.contractName}\n■ 스튜디오: ${n.studio}${n.ownerName ? `\n■ 담당자: ${n.ownerName}` : ""}\n■ 연간비용: ${formatCurrency(n.annualCost, n.currency)}${n.wikiUrl ? `\n■ 문서 링크: ${n.wikiUrl}` : ""}\n\n${n.message}\n\nIT Procurement Team`;
+const buildSlackMsg = (n) => `${n.urgency === "critical" || n.urgency === "expired" ? "🚨" : "⚠️"} *[Contract Alert] ${n.title}*\n> *벤더:* ${n.vendor}\n> *계약명:* ${n.contractName}\n> *스튜디오:* ${n.studio}${n.ownerName ? `\n> *담당자:* ${n.ownerName}` : ""}\n> *연간비용:* ${formatCurrency(n.annualCost, n.currency)}\n\n${n.message}`;
+const buildEmailSubject = (n) => `${n.urgency === "critical" || n.urgency === "expired" ? "[긴급] " : "[알림] "}${n.vendor} — ${n.title}`;
+const buildEmailBody = (n) => `안녕하세요,\n\n${n.title}\n\n■ 벤더: ${n.vendor}\n■ 계약명: ${n.contractName}\n■ 스튜디오: ${n.studio}${n.ownerName ? `\n■ 담당자: ${n.ownerName}` : ""}\n■ 연간비용: ${formatCurrency(n.annualCost, n.currency)}\n\n${n.message}\n\nIT Procurement Team`;
 
 // ─── Contract Form ───
 const ContractForm = ({ contract, onSave, onCancel, existingStudios, existingTypes }) => {
@@ -126,13 +87,11 @@ const ContractForm = ({ contract, onSave, onCancel, existingStudios, existingTyp
         <InputField label="공급사명"><input style={inputStyle} value={form.supplier} onChange={e => up("supplier", e.target.value)} placeholder="e.g. GS네오텍, 메가존클라우드" /></InputField>
         <InputField label="스튜디오"><EditableSelect value={form.studio} onChange={v => up("studio", v)} options={studioOptions} placeholder="스튜디오명 입력" /></InputField>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
-        <InputField label="계약 유형"><EditableSelect value={form.type} onChange={v => up("type", v)} options={typeOptions} placeholder="계약 유형 입력" /></InputField>
-      </div>
+      <InputField label="계약 유형"><EditableSelect value={form.type} onChange={v => up("type", v)} options={typeOptions} placeholder="계약 유형 입력" /></InputField>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
-        <InputField label="시작일" required><DateInput value={form.start_date} onChange={v => up("start_date", v)} /></InputField>
-        <InputField label="종료일" required><DateInput value={form.end_date} onChange={v => up("end_date", v)} /></InputField>
-        <InputField label="갱신 통보일"><DateInput value={form.renewal_date} onChange={v => up("renewal_date", v)} /></InputField>
+        <InputField label="시작일" required><input style={inputStyle} type="date" value={form.start_date} onChange={e => up("start_date", e.target.value)} /></InputField>
+        <InputField label="종료일" required><input style={inputStyle} type="date" value={form.end_date} onChange={e => up("end_date", e.target.value)} /></InputField>
+        <InputField label="갱신 통보일"><input style={inputStyle} type="date" value={form.renewal_date} onChange={e => up("renewal_date", e.target.value)} /></InputField>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <InputField label="연간 비용"><input style={inputStyle} type="number" value={form.annual_cost} onChange={e => up("annual_cost", Number(e.target.value))} /></InputField>
@@ -161,12 +120,34 @@ const ContractForm = ({ contract, onSave, onCancel, existingStudios, existingTyp
       <div style={{ padding: "14px 0 6px", borderTop: "1px solid #1A1F2B", marginTop: 8 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: "#6BA3FF", letterSpacing: "1px", textTransform: "uppercase", marginBottom: 12 }}>💳 결제 방식</div>
       </div>
-      <InputField label="분할 결제">
-        <div onClick={() => { up("installment_enabled", !form.installment_enabled); if (!form.installment_enabled && form.installment_schedule.length === 0) up("installment_schedule", [{ date: "", amount: 0, label: "1차", paid: false }]); }} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "10px 0" }}>
-          <div style={{ width: 44, height: 24, borderRadius: 12, background: form.installment_enabled ? "#4A6FA5" : "#2E3440", position: "relative", transition: "background 0.3s" }}><div style={{ width: 18, height: 18, borderRadius: "50%", background: "#E8ECF2", position: "absolute", top: 3, left: form.installment_enabled ? 23 : 3, transition: "left 0.3s" }} /></div>
-          <span style={{ fontSize: 13, color: "#8892A0" }}>{form.installment_enabled ? "ON" : "OFF (일시불)"}</span>
-        </div>
-      </InputField>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "center" }}>
+        <InputField label="분할 결제">
+          <div onClick={() => { up("installment_enabled", !form.installment_enabled); if (!form.installment_enabled && form.installment_schedule.length === 0) up("installment_schedule", [{ date: "", amount: 0, label: "1차", paid: false }]); }} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "10px 0" }}>
+            <div style={{ width: 44, height: 24, borderRadius: 12, background: form.installment_enabled ? "#4A6FA5" : "#2E3440", position: "relative", transition: "background 0.3s" }}><div style={{ width: 18, height: 18, borderRadius: "50%", background: "#E8ECF2", position: "absolute", top: 3, left: form.installment_enabled ? 23 : 3, transition: "left 0.3s" }} /></div>
+            <span style={{ fontSize: 13, color: "#8892A0" }}>{form.installment_enabled ? "ON" : "OFF (일시불)"}</span>
+          </div>
+        </InputField>
+        {form.installment_enabled && (
+          <InputField label="자동 분할">
+            <div style={{ display: "flex", gap: 6 }}>
+              {[{l:"2회",n:2},{l:"3회",n:3},{l:"4회(분기)",n:4},{l:"12회(월)",n:12}].map(({l,n}) => (
+                <button key={n} onClick={() => {
+                  if (!form.start_date || !form.annual_cost) return;
+                  const base = new Date(form.start_date + "T00:00:00Z");
+                  const totalCost = form.annual_cost || 0;
+                  const amt = Math.floor(totalCost / n);
+                  const months = Math.round(12 / n);
+                  const sched = Array.from({length: n}, (_, i) => {
+                    const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + months * i, Math.min(base.getUTCDate(), new Date(base.getUTCFullYear(), base.getUTCMonth() + months * i + 1, 0).getDate())));
+                    return { date: d.toISOString().slice(0, 10), amount: i === n - 1 ? totalCost - amt * (n - 1) : amt, label: `${i + 1}차`, paid: false };
+                  });
+                  up("installment_schedule", sched);
+                }} style={{ flex: 1, padding: "8px 4px", borderRadius: 6, border: "1px solid #2E3440", background: "#0D1017", color: "#6BA3FF", fontSize: 11, cursor: "pointer" }}>{l}</button>
+              ))}
+            </div>
+          </InputField>
+        )}
+      </div>
       {form.installment_enabled && form.installment_schedule.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 1fr 40px", gap: 8, marginBottom: 8 }}>
@@ -178,7 +159,7 @@ const ContractForm = ({ contract, onSave, onCancel, existingStudios, existingTyp
           {form.installment_schedule.map((item, idx) => (
             <div key={idx} style={{ display: "grid", gridTemplateColumns: "60px 1fr 1fr 40px", gap: 8, marginBottom: 6, alignItems: "center" }}>
               <span style={{ fontSize: 13, color: "#8892A0", padding: "0 4px" }}>{item.label}</span>
-              <DateInput value={item.date} onChange={v => { const s = [...form.installment_schedule]; s[idx] = {...s[idx], date: v}; up("installment_schedule", s); }} />
+              <input style={{ ...inputStyle, padding: "8px 10px", fontSize: 13 }} type="date" value={item.date} onChange={e => { const s = [...form.installment_schedule]; s[idx] = {...s[idx], date: e.target.value}; up("installment_schedule", s); }} />
               <input style={{ ...inputStyle, padding: "8px 10px", fontSize: 13 }} type="number" value={item.amount} onChange={e => { const s = [...form.installment_schedule]; s[idx] = {...s[idx], amount: Number(e.target.value)}; up("installment_schedule", s); }} />
               <button onClick={() => { const s = form.installment_schedule.filter((_, i) => i !== idx); up("installment_schedule", s); }} style={{ background: "none", border: "none", color: "#FF6B6B", fontSize: 16, cursor: "pointer", padding: 0 }}>×</button>
             </div>
@@ -239,7 +220,17 @@ const CSVImportModal = ({ isOpen, onClose, onImport }) => {
         supplier: obj.supplier || obj["공급사"] || obj["공급사명"] || "",
         notes: obj.notes || obj["메모"] || "", status: "active",
       };
-    }).filter(r => r.vendor && r.end_date);
+    }).filter(r => {
+      if (!r.vendor || !r.end_date) return false;
+      // 날짜 형식 검증 (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(r.end_date) || isNaN(new Date(r.end_date).getTime())) return false;
+      if (r.start_date && (!dateRegex.test(r.start_date) || isNaN(new Date(r.start_date).getTime()))) return false;
+      if (r.renewal_date && (!dateRegex.test(r.renewal_date) || isNaN(new Date(r.renewal_date).getTime()))) return false;
+      // 비용 음수 검증
+      if (r.annual_cost < 0) r.annual_cost = 0;
+      return true;
+    });
     setPreview(rows);
   };
 
@@ -364,7 +355,6 @@ export default function ContractTracker() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("active");
-  const [filterOwner, setFilterOwner] = useState("all");
   const [sortBy, setSortBy] = useState("urgency");
   const [showDetail, setShowDetail] = useState(null);
   const [toast, setToast] = useState(null);
@@ -428,7 +418,7 @@ export default function ContractTracker() {
 
   const toggleContractStatus = async (c) => {
     const newStatus = c.status === "active" ? "terminated" : "active";
-    const { error } = await supabase.from("contracts").update({ status: newStatus }).eq("id", c.id);
+    const { error } = await supabase.from("contracts").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("id", c.id);
     if (error) { showToast("상태 변경 실패", "error"); return; }
     await loadContracts(); setShowDetail(null);
     showToast(newStatus === "terminated" ? "계약이 종료 처리되었습니다." : "계약이 재활성화되었습니다.", "success");
@@ -459,13 +449,11 @@ export default function ContractTracker() {
   const activeNotifs = notifications.filter(n => !dismissedNotifs[n.id]);
   const criticalCount = activeNotifs.filter(n => n.urgency === "critical" || n.urgency === "expired").length;
 
-  const owners = useMemo(() => [...new Set(contracts.map(c => c.owner_name).filter(Boolean))].sort(), [contracts]);
-
   const filtered = useMemo(() => {
-    let list = contracts.filter(c => { const ms = !searchTerm || `${c.vendor} ${c.name} ${c.notes}`.toLowerCase().includes(searchTerm.toLowerCase()); const mt = filterType === "all" || c.type === filterType; const mst = filterStatus === "all" || c.status === filterStatus; const mo = filterOwner === "all" || c.owner_name === filterOwner; return ms && mt && mst && mo; });
+    let list = contracts.filter(c => { const ms = !searchTerm || `${c.vendor} ${c.name} ${c.notes}`.toLowerCase().includes(searchTerm.toLowerCase()); const mt = filterType === "all" || c.type === filterType; const mst = filterStatus === "all" || c.status === filterStatus; return ms && mt && mst; });
     list.sort((a, b) => { if (sortBy === "urgency") return Math.min(getDaysUntil(a.end_date), getDaysUntil(a.renewal_date)) - Math.min(getDaysUntil(b.end_date), getDaysUntil(b.renewal_date)); if (sortBy === "cost") return b.annual_cost - a.annual_cost; if (sortBy === "vendor") return a.vendor.localeCompare(b.vendor); return 0; });
     return list;
-  }, [contracts, searchTerm, filterType, filterStatus, filterOwner, sortBy]);
+  }, [contracts, searchTerm, filterType, filterStatus, sortBy]);
 
   const stats = useMemo(() => { const a = contracts.filter(c => c.status === "active"); return { total: a.length, totalCostUSD: a.filter(c => c.currency === "USD").reduce((s, c) => s + (c.annual_cost||0), 0), autoRenewCount: a.filter(c => c.auto_renew).length, urgentCount: a.filter(c => ["critical","expired"].includes(getUrgencyLevel(c))).length, warningCount: a.filter(c => getUrgencyLevel(c) === "warning").length }; }, [contracts]);
 
@@ -537,7 +525,6 @@ export default function ContractTracker() {
               <input style={{ ...inputStyle, width: 240 }} placeholder="🔍 검색..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
               <select style={{ ...inputStyle, width: 160 }} value={filterType} onChange={e => setFilterType(e.target.value)}><option value="all">모든 유형</option>{existingTypes.map(t => <option key={t} value={t}>{t}</option>)}</select>
               <select style={{ ...inputStyle, width: 130 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}><option value="all">전체 상태</option><option value="active">활성</option><option value="terminated">종료</option></select>
-              <select style={{ ...inputStyle, width: 140 }} value={filterOwner} onChange={e => setFilterOwner(e.target.value)}><option value="all">모든 담당자</option>{owners.map(o => <option key={o} value={o}>{o}</option>)}</select>
               <select style={{ ...inputStyle, width: 140 }} value={sortBy} onChange={e => setSortBy(e.target.value)}><option value="urgency">긴급도순</option><option value="cost">비용순</option><option value="vendor">벤더순</option></select>
             </div>
             <div style={{ borderRadius: 12, border: "1px solid #1A1F2B", overflow: "hidden" }}>
@@ -569,7 +556,7 @@ export default function ContractTracker() {
           {showDetail.wiki_url && (
             <div style={{ padding: "12px 14px", background: "#0D1017", borderRadius: 10, border: "1px solid #2E4A7A", marginBottom: 12 }}>
               <div style={{ fontSize: 10, color: "#6B7280", textTransform: "uppercase", marginBottom: 4 }}>📎 Wiki / 문서 링크</div>
-              <a href={showDetail.wiki_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: "#6BA3FF", textDecoration: "none", wordBreak: "break-all" }}>{showDetail.wiki_url}</a>
+              {(() => { try { const u = new URL(showDetail.wiki_url); return (u.protocol === "http:" || u.protocol === "https:") ? <a href={showDetail.wiki_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: "#6BA3FF", textDecoration: "none", wordBreak: "break-all" }}>{showDetail.wiki_url}</a> : <span style={{ fontSize: 13, color: "#8892A0", wordBreak: "break-all" }}>{showDetail.wiki_url}</span>; } catch { return <span style={{ fontSize: 13, color: "#8892A0", wordBreak: "break-all" }}>{showDetail.wiki_url}</span>; } })()}
             </div>
           )}
           {showDetail.installment_enabled && showDetail.installment_schedule && showDetail.installment_schedule.length > 0 && (
@@ -602,7 +589,7 @@ export default function ContractTracker() {
         </div>)}
       </Modal>
 
-      <Modal isOpen={showForm} onClose={() => { setShowForm(false); setEditContract(null); }} title={editContract ? "계약 수정" : "계약 등록"} width={680}>
+      <Modal isOpen={showForm} onClose={() => { setShowForm(false); setEditContract(null); }} title={editContract ? "계약 수정" : "계약 등록"}>
         <ContractForm contract={editContract} onSave={saveContract} onCancel={() => { setShowForm(false); setEditContract(null); }} existingStudios={existingStudios} existingTypes={existingTypes} />
       </Modal>
 
