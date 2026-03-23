@@ -69,18 +69,28 @@ export default function ContractTracker() {
   const showToast = useCallback((msg, type = "info") => setToast({ message: msg, type }), []);
 
   const loadContracts = useCallback(async () => {
-    const { data, error } = await supabase.from("contracts").select("*").eq("is_deleted", false).order("end_date", { ascending: true });
-    if (error) { showToast("데이터 로딩 실패: " + error.message, "error"); return; }
-    setContracts(data.map(fromDB));
+    try {
+      // is_deleted 컬럼이 없을 수 있으므로 fallback
+      let result = await supabase.from("contracts").select("*").eq("is_deleted", false).order("end_date", { ascending: true });
+      if (result.error) {
+        // is_deleted 컬럼 없으면 전체 조회
+        result = await supabase.from("contracts").select("*").order("end_date", { ascending: true });
+      }
+      if (result.error) { showToast("데이터 로딩 실패: " + result.error.message, "error"); return; }
+      setContracts((result.data || []).map(fromDB));
+    } catch (e) {
+      showToast("데이터 로딩 실패", "error");
+    }
   }, [showToast]);
 
   const loadDeletedContracts = useCallback(async () => {
-    const { data, error } = await supabase.from("contracts").select("*").eq("is_deleted", true).order("deleted_at", { ascending: false });
-    if (error) { showToast("휴지통 로딩 실패: " + error.message, "error"); return; }
-    setDeletedContracts(data.map(fromDB));
-  }, [showToast]);
+    try {
+      const { data, error } = await supabase.from("contracts").select("*").eq("is_deleted", true).order("deleted_at", { ascending: false });
+      if (!error && data) setDeletedContracts(data.map(fromDB));
+    } catch {}
+  }, []);
 
-  useEffect(() => { loadContracts().then(() => setLoading(false)); }, [loadContracts]);
+  useEffect(() => { loadContracts().finally(() => setLoading(false)); }, [loadContracts]);
 
   const saveContract = async (c) => {
     if (c.id) {
