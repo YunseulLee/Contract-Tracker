@@ -43,18 +43,37 @@ export default function ContractTracker() {
   const [customStudios, setCustomStudios] = useState(["KRAFTON", "PalM"]);
   const [customTypes, setCustomTypes] = useState(["SaaS", "Cloud Infrastructure", "License", "Service", "Maintenance", "Consulting"]);
 
-  // Load custom options
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await supabase.from("app_settings").select("*").eq("key", "custom_options").single();
-        if (data?.value) {
-          const parsed = JSON.parse(data.value);
-          if (parsed.studios) setCustomStudios(parsed.studios);
-          if (parsed.types) setCustomTypes(parsed.types);
-        }
-      } catch {}
-    })();
+  const showToast = useCallback((msg, type = "info") => setToast({ message: msg, type }), []);
+
+  const loadContracts = useCallback(async () => {
+    try {
+      let result = await supabase.from("contracts").select("*").eq("is_deleted", false).order("end_date", { ascending: true });
+      if (result.error) {
+        result = await supabase.from("contracts").select("*").order("end_date", { ascending: true });
+      }
+      if (result.error) { showToast("데이터 로딩 실패: " + result.error.message, "error"); return; }
+      setContracts((result.data || []).map(fromDB));
+    } catch {
+      showToast("데이터 로딩 실패", "error");
+    }
+  }, [showToast]);
+
+  const loadCustomOptions = useCallback(async () => {
+    try {
+      const { data } = await supabase.from("app_settings").select("*").eq("key", "custom_options").single();
+      if (data?.value) {
+        const parsed = JSON.parse(data.value);
+        if (parsed.studios) setCustomStudios(parsed.studios);
+        if (parsed.types) setCustomTypes(parsed.types);
+      }
+    } catch {}
+  }, []);
+
+  const loadDeletedContracts = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from("contracts").select("*").eq("is_deleted", true).order("deleted_at", { ascending: false });
+      if (!error && data) setDeletedContracts(data.map(fromDB));
+    } catch {}
   }, []);
 
   const saveCustomOptions = async (studios, types) => {
@@ -66,31 +85,11 @@ export default function ContractTracker() {
     } catch {}
   };
 
-  const showToast = useCallback((msg, type = "info") => setToast({ message: msg, type }), []);
-
-  const loadContracts = useCallback(async () => {
-    try {
-      // is_deleted 컬럼이 없을 수 있으므로 fallback
-      let result = await supabase.from("contracts").select("*").eq("is_deleted", false).order("end_date", { ascending: true });
-      if (result.error) {
-        // is_deleted 컬럼 없으면 전체 조회
-        result = await supabase.from("contracts").select("*").order("end_date", { ascending: true });
-      }
-      if (result.error) { showToast("데이터 로딩 실패: " + result.error.message, "error"); return; }
-      setContracts((result.data || []).map(fromDB));
-    } catch (e) {
-      showToast("데이터 로딩 실패", "error");
-    }
-  }, [showToast]);
-
-  const loadDeletedContracts = useCallback(async () => {
-    try {
-      const { data, error } = await supabase.from("contracts").select("*").eq("is_deleted", true).order("deleted_at", { ascending: false });
-      if (!error && data) setDeletedContracts(data.map(fromDB));
-    } catch {}
-  }, []);
-
-  useEffect(() => { loadContracts().finally(() => setLoading(false)); }, [loadContracts]);
+  // 병렬 로딩: contracts + custom options 동시 요청
+  useEffect(() => {
+    Promise.all([loadContracts(), loadCustomOptions()])
+      .finally(() => setLoading(false));
+  }, [loadContracts, loadCustomOptions]);
 
   const saveContract = async (c) => {
     if (c.id) {

@@ -21,36 +21,22 @@ export default function AuthProvider({ children }) {
 
   const loadRole = async (currentUser) => {
     if (!currentUser) { setRole('viewer'); return; }
-
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', currentUser.id)
         .single();
 
-      if (!error && data) {
-        setRole(data.role);
-        return;
-      }
+      if (data) { setRole(data.role); return; }
 
-      // 레코드 없으면 자동 생성
+      // 레코드 없으면 자동 생성 (admin 없으면 admin, 있으면 viewer)
       const { data: admins } = await supabase
-        .from('user_roles')
-        .select('id')
-        .eq('role', 'admin')
-        .limit(1);
-
+        .from('user_roles').select('id').eq('role', 'admin').limit(1);
       const assignRole = (admins && admins.length > 0) ? 'viewer' : 'admin';
-
-      await supabase
-        .from('user_roles')
-        .upsert({
-          user_id: currentUser.id,
-          email: currentUser.email,
-          role: assignRole,
-        }, { onConflict: 'user_id' });
-
+      await supabase.from('user_roles').upsert({
+        user_id: currentUser.id, email: currentUser.email, role: assignRole,
+      }, { onConflict: 'user_id' });
       setRole(assignRole);
     } catch {
       setRole('admin');
@@ -58,11 +44,7 @@ export default function AuthProvider({ children }) {
   };
 
   useEffect(() => {
-    // 3초 타임아웃: Supabase 응답이 없으면 강제로 로딩 해제
-    const timeout = setTimeout(() => {
-      console.warn('Auth timeout - forcing loading complete');
-      finishLoading();
-    }, 3000);
+    const timeout = setTimeout(finishLoading, 2000);
 
     getSession().then(async ({ session }) => {
       const u = session?.user ?? null;
@@ -70,10 +52,7 @@ export default function AuthProvider({ children }) {
       if (u) await loadRole(u);
       clearTimeout(timeout);
       finishLoading();
-    }).catch(() => {
-      clearTimeout(timeout);
-      finishLoading();
-    });
+    }).catch(() => { clearTimeout(timeout); finishLoading(); });
 
     const { data: { subscription } } = onAuthStateChange(async (_event, session) => {
       const u = session?.user ?? null;
@@ -82,16 +61,11 @@ export default function AuthProvider({ children }) {
       finishLoading();
     });
 
-    return () => {
-      clearTimeout(timeout);
-      subscription.unsubscribe();
-    };
+    return () => { clearTimeout(timeout); subscription.unsubscribe(); };
   }, []);
 
-  const isAdmin = role === 'admin';
-
   return (
-    <AuthContext.Provider value={{ user, role, isAdmin, loading }}>
+    <AuthContext.Provider value={{ user, role, isAdmin: role === 'admin', loading }}>
       {children}
     </AuthContext.Provider>
   );
