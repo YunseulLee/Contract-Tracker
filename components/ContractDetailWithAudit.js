@@ -1,14 +1,12 @@
 'use client';
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { useAuth } from "./AuthProvider";
 import StatusBadge from "./ui/StatusBadge";
 import { fieldLabels, urgencyColors, renewalStatusLabels } from "@/lib/constants";
 import { getDaysUntil, getUrgencyLevel, formatCurrency } from "@/lib/helpers";
 import RenewalWorkflow, { RenewalBadge } from "./RenewalWorkflow";
 
 export default function ContractDetailWithAudit({ contract, onToggleStatus, onEdit, onDelete, onRefresh }) {
-  const { isAdmin } = useAuth();
   const [tab, setTab] = useState("info");
   const [auditLogs, setAuditLogs] = useState([]);
   const [auditLoading, setAuditLoading] = useState(false);
@@ -131,15 +129,13 @@ export default function ContractDetailWithAudit({ contract, onToggleStatus, onEd
         </div>
       )}
 
-      {isAdmin && (
-        <div style={{ display: "flex", gap: 10, justifyContent: "space-between", marginTop: 20, paddingTop: 16, borderTop: "1px solid #1A1F2B" }}>
-          <button onClick={() => onToggleStatus(c)} style={{ padding: "8px 18px", borderRadius: 8, border: `1px solid ${c.status === "active" ? "#8B833A" : "#3A8B7A"}`, background: "transparent", color: c.status === "active" ? "#FFE066" : "#66FFCC", fontSize: 12, cursor: "pointer" }}>{c.status === "active" ? "⏹ 종료 처리" : "▶ 재활성화"}</button>
-          <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => onDelete(c)} style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid #8B3A3A", background: "transparent", color: "#FF6B6B", fontSize: 12, cursor: "pointer" }}>삭제</button>
-            <button onClick={() => onEdit(c)} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #4A6FA5, #3A5A8A)", color: "#E8ECF2", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>수정</button>
-          </div>
+      <div style={{ display: "flex", gap: 10, justifyContent: "space-between", marginTop: 20, paddingTop: 16, borderTop: "1px solid #1A1F2B" }}>
+        <button onClick={() => onToggleStatus(c)} style={{ padding: "8px 18px", borderRadius: 8, border: `1px solid ${c.status === "active" ? "#8B833A" : "#3A8B7A"}`, background: "transparent", color: c.status === "active" ? "#FFE066" : "#66FFCC", fontSize: 12, cursor: "pointer" }}>{c.status === "active" ? "⏹ 종료 처리" : "▶ 재활성화"}</button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={() => onDelete(c)} style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid #8B3A3A", background: "transparent", color: "#FF6B6B", fontSize: 12, cursor: "pointer" }}>삭제</button>
+          <button onClick={() => onEdit(c)} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #4A6FA5, #3A5A8A)", color: "#E8ECF2", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>수정</button>
         </div>
-      )}
+      </div>
     </div>
   );
 }

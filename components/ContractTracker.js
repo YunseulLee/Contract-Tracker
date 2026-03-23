@@ -1,7 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { supabase, signOut } from "@/lib/supabase";
-import { useAuth } from "./AuthProvider";
+import { supabase } from "@/lib/supabase";
 import { fromDB, toDB, writeAuditLog, diffContract } from "@/lib/audit";
 import { getDaysUntil, getUrgencyLevel, formatCurrency } from "@/lib/helpers";
 import { urgencyColors, inputStyle } from "@/lib/constants";
@@ -17,10 +16,8 @@ import OptionsManager from "./OptionsManager";
 import TimelineCalendar from "./TimelineCalendar";
 import ContractDetailWithAudit from "./ContractDetailWithAudit";
 import DeleteConfirmModal from "./DeleteConfirmModal";
-import UserManager from "./UserManager";
 
 export default function ContractTracker() {
-  const { user, isAdmin, role } = useAuth();
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("dashboard");
@@ -37,7 +34,6 @@ export default function ContractTracker() {
   const [notifSettings, setNotifSettings] = useState({ slackEnabled: false, slackWebhookUrl: "", slackChannel: "", emailEnabled: false, emailRecipients: "" });
   const [showNotifSettings, setShowNotifSettings] = useState(false);
   const [showOptionsManager, setShowOptionsManager] = useState(false);
-  const [showUserManager, setShowUserManager] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deletedContracts, setDeletedContracts] = useState([]);
   const [customStudios, setCustomStudios] = useState(["KRAFTON", "PalM"]);
@@ -98,12 +94,12 @@ export default function ContractTracker() {
       if (error) { showToast("수정 실패: " + error.message, "error"); return; }
       if (oldContract) {
         const changes = diffContract(oldContract, c);
-        if (changes.length > 0) await writeAuditLog(c.id, "update", changes, user?.email || "");
+        if (changes.length > 0) await writeAuditLog(c.id, "update", changes, "");
       }
     } else {
       const { data, error } = await supabase.from("contracts").insert(toDB(c)).select("id").single();
       if (error) { showToast("등록 실패: " + error.message, "error"); return; }
-      if (data) await writeAuditLog(data.id, "create", [], user?.email || "");
+      if (data) await writeAuditLog(data.id, "create", [], "");
     }
     await loadContracts(); setShowForm(false); setEditContract(null);
     showToast("저장 완료", "success");
@@ -112,7 +108,7 @@ export default function ContractTracker() {
   const deleteContract = async (id) => {
     const { error } = await supabase.from("contracts").update({ is_deleted: true, deleted_at: new Date().toISOString() }).eq("id", id);
     if (error) { showToast("삭제 실패", "error"); return; }
-    await writeAuditLog(id, "delete", [], user?.email || "");
+    await writeAuditLog(id, "delete", [], "");
     await loadContracts(); setShowDetail(null); setDeleteTarget(null);
     showToast("휴지통으로 이동되었습니다.", "success");
   };
@@ -120,7 +116,7 @@ export default function ContractTracker() {
   const restoreContract = async (id) => {
     const { error } = await supabase.from("contracts").update({ is_deleted: false, deleted_at: null }).eq("id", id);
     if (error) { showToast("복구 실패", "error"); return; }
-    await writeAuditLog(id, "restore", [], user?.email || "");
+    await writeAuditLog(id, "restore", [], "");
     await loadDeletedContracts(); await loadContracts();
     showToast("계약이 복구되었습니다.", "success");
   };
@@ -129,7 +125,7 @@ export default function ContractTracker() {
     const newStatus = c.status === "active" ? "terminated" : "active";
     const { error } = await supabase.from("contracts").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("id", c.id);
     if (error) { showToast("상태 변경 실패", "error"); return; }
-    await writeAuditLog(c.id, "update", [{ field_name: "status", old_value: c.status, new_value: newStatus }], user?.email || "");
+    await writeAuditLog(c.id, "update", [{ field_name: "status", old_value: c.status, new_value: newStatus }], "");
     await loadContracts(); setShowDetail(null);
     showToast(newStatus === "terminated" ? "계약이 종료 처리되었습니다." : "계약이 재활성화되었습니다.", "success");
   };
@@ -197,7 +193,6 @@ export default function ContractTracker() {
     { id: "list", label: "계약 목록", icon: "☰" },
     { id: "types", label: "유형별", icon: "⬡" },
     { id: "trash", label: "휴지통", icon: "🗑" },
-    ...(isAdmin ? [{ id: "admin", label: "관리자", icon: "🔑" }] : []),
   ];
 
   if (loading) return (
@@ -221,15 +216,10 @@ export default function ContractTracker() {
           <button onClick={() => setView("notifications")} style={{ position: "relative", padding: "8px 14px", borderRadius: 8, border: "1px solid #2E3440", background: "transparent", color: "#8892A0", fontSize: 14, cursor: "pointer" }}>
             🔔{criticalCount > 0 && <span style={{ position: "absolute", top: -4, right: -4, width: 18, height: 18, borderRadius: "50%", background: "#FF4444", color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", animation: "pulse 1.5s infinite" }}>{criticalCount}</span>}
           </button>
-          {isAdmin && <button onClick={() => setShowCSV(true)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #2E3440", background: "transparent", color: "#8892A0", fontSize: 12, cursor: "pointer" }}>↑ Import</button>}
+          <button onClick={() => setShowCSV(true)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #2E3440", background: "transparent", color: "#8892A0", fontSize: 12, cursor: "pointer" }}>↑ Import</button>
           <button onClick={exportCSV} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #2E3440", background: "transparent", color: "#8892A0", fontSize: 12, cursor: "pointer" }}>↓ Export</button>
-          {isAdmin && <button onClick={() => setShowOptionsManager(true)} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #2E3440", background: "transparent", color: "#8892A0", fontSize: 12, cursor: "pointer" }}>⚙</button>}
-          {isAdmin && <button onClick={() => { setEditContract(null); setShowForm(true); }} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #4A6FA5, #3A5A8A)", color: "#E8ECF2", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>+ 계약 등록</button>}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8, paddingLeft: 8, borderLeft: "1px solid #2E3440" }}>
-            <span style={{ fontSize: 11, color: "#6B7280" }}>{user?.email}</span>
-            <span style={{ padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, background: isAdmin ? "#1B2333" : "#1A1D23", color: isAdmin ? "#6BA3FF" : "#8892A0", border: `1px solid ${isAdmin ? "#2E4A7A" : "#2E3440"}` }}>{isAdmin ? 'Admin' : 'Viewer'}</span>
-            <button onClick={() => signOut()} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #2E3440", background: "transparent", color: "#8892A0", fontSize: 11, cursor: "pointer" }}>로그아웃</button>
-          </div>
+          <button onClick={() => setShowOptionsManager(true)} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #2E3440", background: "transparent", color: "#8892A0", fontSize: 12, cursor: "pointer" }}>⚙</button>
+          <button onClick={() => { setEditContract(null); setShowForm(true); }} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #4A6FA5, #3A5A8A)", color: "#E8ECF2", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>+ 계약 등록</button>
         </div>
       </div>
 
@@ -371,8 +361,8 @@ export default function ContractTracker() {
                         <td style={{ padding: "12px 16px", fontWeight: 700, color: isTerm ? "#6B7280" : uc.text }}>{isTerm ? "종료" : dl > 0 ? `D-${dl}` : dl === 0 ? "D-Day" : `D+${Math.abs(dl)}`}</td>
                         <td style={{ padding: "12px 16px", fontWeight: 600 }}>{formatCurrency(c.annual_cost, c.currency)}</td>
                         <td style={{ padding: "12px 16px", display: "flex", gap: 6 }}>
-                          {isAdmin && <button onClick={(e) => { e.stopPropagation(); setEditContract(c); setShowForm(true); }} style={{ background: "none", border: "1px solid #2E3440", borderRadius: 6, color: "#6B7280", padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>수정</button>}
-                          {isAdmin && <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }} style={{ background: "none", border: "1px solid #8B3A3A40", borderRadius: 6, color: "#FF6B6B", padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>삭제</button>}
+                          <button onClick={(e) => { e.stopPropagation(); setEditContract(c); setShowForm(true); }} style={{ background: "none", border: "1px solid #2E3440", borderRadius: 6, color: "#6B7280", padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>수정</button>
+                          <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }} style={{ background: "none", border: "1px solid #8B3A3A40", borderRadius: 6, color: "#FF6B6B", padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>삭제</button>
                         </td>
                       </tr>
                     );
@@ -451,13 +441,6 @@ export default function ContractTracker() {
             </div>
           )}
 
-          {/* Admin */}
-          {view === "admin" && isAdmin && (
-            <div style={{ animation: "fadeIn 0.4s ease" }}>
-              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 24 }}>🔑 관리자</div>
-              <UserManager onClose={() => setView("dashboard")} />
-            </div>
-          )}
         </div>
       </div>
 
@@ -493,9 +476,6 @@ export default function ContractTracker() {
 
       <DeleteConfirmModal isOpen={!!deleteTarget} contract={deleteTarget} onConfirm={deleteContract} onClose={() => setDeleteTarget(null)} />
 
-      <Modal isOpen={showUserManager} onClose={() => setShowUserManager(false)} title="👥 사용자 관리" width={620}>
-        <UserManager onClose={() => setShowUserManager(false)} />
-      </Modal>
     </div>
   );
 }

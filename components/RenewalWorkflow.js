@@ -1,6 +1,5 @@
 'use client';
 import { useState, useEffect } from "react";
-import { useAuth } from "./AuthProvider";
 import { inputStyle, renewalStatusLabels, renewalStatusColors } from "@/lib/constants";
 import { formatCurrency } from "@/lib/helpers";
 import { approveRenewal, cancelRenewal, loadRenewalHistory } from "@/lib/renewal";
@@ -24,7 +23,6 @@ const RenewalBadge = ({ status }) => {
 export { RenewalBadge };
 
 export default function RenewalWorkflow({ contract, onComplete }) {
-  const { user, isAdmin } = useAuth();
   const [mode, setMode] = useState(null); // 'approve' | 'cancel'
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -58,7 +56,7 @@ export default function RenewalWorkflow({ contract, onComplete }) {
     setSubmitting(true);
     const { error } = await approveRenewal(contract, {
       newEndDate, newCost, notes,
-      decidedBy: user?.email || "",
+      decidedBy: "",
     });
     setSubmitting(false);
     if (!error) onComplete("갱신이 승인되었습니다.");
@@ -67,7 +65,7 @@ export default function RenewalWorkflow({ contract, onComplete }) {
   const handleCancel = async () => {
     setSubmitting(true);
     const { error } = await cancelRenewal(contract, {
-      notes, decidedBy: user?.email || "",
+      notes, decidedBy: "",
     });
     setSubmitting(false);
     if (!error) onComplete("해지가 결정되었습니다.");
@@ -102,7 +100,7 @@ export default function RenewalWorkflow({ contract, onComplete }) {
       )}
 
       {/* Admin 액션 버튼 */}
-      {isAdmin && contract.renewal_status === "pending_review" && !mode && (
+      {contract.renewal_status === "pending_review" && !mode && (
         <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
           <button onClick={() => setMode("approve")} style={{ flex: 1, padding: "14px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #3A8B7A, #2D6B5F)", color: "#E8ECF2", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
             ✓ 갱신 승인
