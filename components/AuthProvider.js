@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useRef } from "react";
 import { supabase, getSession, onAuthStateChange } from "@/lib/supabase";
 
 const AuthContext = createContext({ user: null, role: 'viewer', loading: true, isAdmin: false });
@@ -8,14 +8,21 @@ export const useAuth = () => useContext(AuthContext);
 
 export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [role, setRole] = useState('viewer');
+  const [role, setRole] = useState('admin');
   const [loading, setLoading] = useState(true);
+  const resolved = useRef(false);
+
+  const finishLoading = () => {
+    if (!resolved.current) {
+      resolved.current = true;
+      setLoading(false);
+    }
+  };
 
   const loadRole = async (currentUser) => {
     if (!currentUser) { setRole('viewer'); return; }
 
     try {
-      // 1. 현재 사용자의 역할 조회
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
@@ -27,17 +34,15 @@ export default function AuthProvider({ children }) {
         return;
       }
 
-      // 2. 레코드가 없으면 → admin이 한 명이라도 있는지 확인
+      // 레코드 없으면 자동 생성
       const { data: admins } = await supabase
         .from('user_roles')
         .select('id')
         .eq('role', 'admin')
         .limit(1);
 
-      const hasAdmin = admins && admins.length > 0;
-      const assignRole = hasAdmin ? 'viewer' : 'admin';
+      const assignRole = (admins && admins.length > 0) ? 'viewer' : 'admin';
 
-      // 3. 새 레코드 생성
       await supabase
         .from('user_roles')
         .upsert({
@@ -48,29 +53,39 @@ export default function AuthProvider({ children }) {
 
       setRole(assignRole);
     } catch {
-      // 테이블 없거나 에러 시 기본 admin (첫 사용자)
       setRole('admin');
     }
   };
 
   useEffect(() => {
+    // 3초 타임아웃: Supabase 응답이 없으면 강제로 로딩 해제
+    const timeout = setTimeout(() => {
+      console.warn('Auth timeout - forcing loading complete');
+      finishLoading();
+    }, 3000);
+
     getSession().then(async ({ session }) => {
       const u = session?.user ?? null;
       setUser(u);
       if (u) await loadRole(u);
-      setLoading(false);
+      clearTimeout(timeout);
+      finishLoading();
     }).catch(() => {
-      setLoading(false);
+      clearTimeout(timeout);
+      finishLoading();
     });
 
     const { data: { subscription } } = onAuthStateChange(async (_event, session) => {
       const u = session?.user ?? null;
       setUser(u);
       if (u) await loadRole(u);
-      setLoading(false);
+      finishLoading();
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const isAdmin = role === 'admin';
