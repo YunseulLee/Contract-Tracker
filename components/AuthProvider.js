@@ -14,42 +14,31 @@ export default function AuthProvider({ children }) {
   const loadRole = async (currentUser) => {
     if (!currentUser) { setRole('viewer'); return; }
 
-    // 1. 현재 사용자의 역할 조회
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', currentUser.id)
-      .single();
+    try {
+      // 1. 현재 사용자의 역할 조회
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', currentUser.id)
+        .single();
 
-    if (!error && data) {
-      setRole(data.role);
-      return;
-    }
+      if (!error && data) {
+        setRole(data.role);
+        return;
+      }
 
-    // 2. 레코드가 없으면 → admin이 한 명이라도 있는지 확인
-    const { data: admins } = await supabase
-      .from('user_roles')
-      .select('id')
-      .eq('role', 'admin')
-      .limit(1);
+      // 2. 레코드가 없으면 → admin이 한 명이라도 있는지 확인
+      const { data: admins } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('role', 'admin')
+        .limit(1);
 
-    const hasAdmin = admins && admins.length > 0;
-    const assignRole = hasAdmin ? 'viewer' : 'admin';
+      const hasAdmin = admins && admins.length > 0;
+      const assignRole = hasAdmin ? 'viewer' : 'admin';
 
-    // 3. 새 레코드 생성 (admin 없으면 → admin, 있으면 → viewer)
-    const { error: insertError } = await supabase
-      .from('user_roles')
-      .insert({
-        user_id: currentUser.id,
-        email: currentUser.email,
-        role: assignRole,
-      });
-
-    if (!insertError) {
-      setRole(assignRole);
-    } else {
-      // insert 실패 시 (RLS 등) → upsert 재시도
-      const { error: upsertError } = await supabase
+      // 3. 새 레코드 생성
+      await supabase
         .from('user_roles')
         .upsert({
           user_id: currentUser.id,
@@ -57,7 +46,10 @@ export default function AuthProvider({ children }) {
           role: assignRole,
         }, { onConflict: 'user_id' });
 
-      setRole(!upsertError ? assignRole : 'viewer');
+      setRole(assignRole);
+    } catch {
+      // 테이블 없거나 에러 시 기본 admin (첫 사용자)
+      setRole('admin');
     }
   };
 
@@ -66,6 +58,8 @@ export default function AuthProvider({ children }) {
       const u = session?.user ?? null;
       setUser(u);
       if (u) await loadRole(u);
+      setLoading(false);
+    }).catch(() => {
       setLoading(false);
     });
 
