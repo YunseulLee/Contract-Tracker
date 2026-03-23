@@ -2,12 +2,14 @@
 -- Contract Tracker — Supabase 전체 테이블 설정
 -- =============================================
 -- Supabase Dashboard > SQL Editor 에서 실행하세요.
+-- 재실행 안전: 기존 정책 정리 + 누락 컬럼 자동 추가
 
--- 0. 기존 RLS 정책 전체 클린업 (에러 방지)
+-- 0. 기존 RLS 정책 전체 클린업
 DO $$
 DECLARE pol RECORD;
 BEGIN
-  FOR pol IN SELECT policyname, tablename FROM pg_policies WHERE tablename IN ('contracts','app_settings','audit_log','renewal_history') LOOP
+  FOR pol IN SELECT policyname, tablename FROM pg_policies
+    WHERE tablename IN ('contracts','app_settings','audit_log','renewal_history','user_roles') LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I ON %I', pol.policyname, pol.tablename);
   END LOOP;
 END $$;
@@ -45,6 +47,21 @@ CREATE TABLE IF NOT EXISTS contracts (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- 기존 테이블에 누락된 컬럼 자동 추가
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT false;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS renewal_status TEXT DEFAULT 'none';
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS renewal_count INTEGER DEFAULT 0;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS renewal_decided_at TIMESTAMPTZ;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS renewal_decided_by TEXT;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS renewal_notes TEXT;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS wiki_url TEXT;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS supplier TEXT;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS installment_enabled BOOLEAN DEFAULT false;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS installment_schedule TEXT DEFAULT '[]';
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS owner_name TEXT;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS owner_email TEXT;
+
 -- 2. app_settings 테이블
 CREATE TABLE IF NOT EXISTS app_settings (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -64,7 +81,6 @@ CREATE TABLE IF NOT EXISTS audit_log (
   changed_by TEXT DEFAULT '',
   created_at TIMESTAMPTZ DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS idx_audit_log_contract_id ON audit_log(contract_id);
 
 -- 4. renewal_history 테이블
@@ -80,7 +96,6 @@ CREATE TABLE IF NOT EXISTS renewal_history (
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS idx_renewal_history_contract_id ON renewal_history(contract_id);
 
 -- 5. RLS 정책 (전체 접근 허용)
