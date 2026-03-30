@@ -213,11 +213,16 @@ export default function ContractTracker() {
     };
   }, [contracts]);
 
+  const expiredContracts = useMemo(() => contracts.filter((c) => c.status === "active" && getDaysUntil(c.end_date) < 0), [contracts]);
+
+  const recentlyExpired = useMemo(() => contracts.filter((c) => c.status === "active" && (() => { const d = getDaysUntil(c.end_date); return d < 0 && d >= -15; })()), [contracts]);
+
   const navItems = [
     { id: "dashboard", label: "대시보드", icon: "◫" },
     { id: "notifications", label: "알림 센터", icon: "🔔", badge: activeNotifs.length },
     { id: "list", label: "계약 목록", icon: "☰" },
     { id: "types", label: "유형별", icon: "⬡" },
+    { id: "expired", label: "계약 종료", icon: "⏹", badge: expiredContracts.length > 0 ? expiredContracts.length : undefined },
     { id: "trash", label: "휴지통", icon: "🗑" },
   ];
 
@@ -321,6 +326,24 @@ export default function ContractTracker() {
                 );
               })}
               {contracts.filter((c) => c.status === "active" && (() => { const d = Math.min(getDaysUntil(c.end_date), getDaysUntil(c.renewal_date)); return d > 0 && d <= 90; })()).length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#4A5568", fontSize: 13 }}>90일 이내 만료 예정인 계약이 없습니다 ✓</div>}
+
+              {recentlyExpired.length > 0 && (
+                <div style={{ marginTop: 28 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#FF6B6B", marginBottom: 14 }}>⏹ 계약 종료 (최근 15일)</div>
+                  {recentlyExpired.sort((a, b) => getDaysUntil(a.end_date) - getDaysUntil(b.end_date)).map((c, i) => {
+                    const dl = getDaysUntil(c.end_date);
+                    return (
+                      <div key={c.id} onClick={() => setShowDetail(c)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", background: "#2D1B1B", border: "1px solid #8B3A3A40", borderRadius: 12, marginBottom: 8, cursor: "pointer", animation: `slideIn 0.3s ease ${i * 0.06}s both` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                          <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: "#2D1B1B", color: "#FF6B6B", border: "1px solid #8B3A3A" }}>종료</span>
+                          <div><div style={{ fontSize: 14, fontWeight: 600 }}>{c.vendor}</div><div style={{ fontSize: 12, color: "#6B7280" }}>{c.name}{c.owner_name ? ` · ${c.owner_name}` : ""}</div></div>
+                        </div>
+                        <div style={{ textAlign: "right" }}><div style={{ fontSize: 18, fontWeight: 700, color: "#FF6B6B" }}>D+{Math.abs(dl)}</div><div style={{ fontSize: 11, color: "#6B7280" }}>종료일 {c.end_date}</div></div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -429,6 +452,37 @@ export default function ContractTracker() {
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Expired */}
+          {view === "expired" && (
+            <div style={{ animation: "fadeIn 0.4s ease" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+                <div><div style={{ fontSize: 18, fontWeight: 700 }}>⏹ 계약 종료</div><div style={{ fontSize: 12, color: "#6B7280", marginTop: 4 }}>계약 기간이 만료된 계약 목록입니다.</div></div>
+              </div>
+              {expiredContracts.length === 0 ? <div style={{ textAlign: "center", padding: 60, color: "#4A5568", fontSize: 13 }}>종료된 계약이 없습니다.</div> : (
+                <div style={{ borderRadius: 12, border: "1px solid #1A1F2B", overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead><tr style={{ background: "#111620" }}>{["상태", "벤더", "계약명", "유형", "담당자", "종료일", "경과"].map((h, i) => <th key={i} style={{ padding: "12px 16px", textAlign: "left", fontSize: 10, color: "#6B7280", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 600, borderBottom: "1px solid #1A1F2B" }}>{h}</th>)}</tr></thead>
+                    <tbody>{expiredContracts.sort((a, b) => getDaysUntil(a.end_date) - getDaysUntil(b.end_date)).map((c) => {
+                      const dl = getDaysUntil(c.end_date);
+                      const isRecent = dl >= -15;
+                      return (
+                        <tr key={c.id} onClick={() => setShowDetail(c)} style={{ borderBottom: "1px solid #1A1F2B", cursor: "pointer", background: isRecent ? "#2D1B1B08" : "transparent" }} onMouseEnter={(e) => e.currentTarget.style.background = "#111620"} onMouseLeave={(e) => e.currentTarget.style.background = isRecent ? "#2D1B1B08" : "transparent"}>
+                          <td style={{ padding: "12px 16px" }}><span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: isRecent ? "#2D1B1B" : "#1A1D23", color: isRecent ? "#FF6B6B" : "#6B7280", border: `1px solid ${isRecent ? "#8B3A3A" : "#2E3440"}` }}>{isRecent ? "최근 종료" : "종료"}</span></td>
+                          <td style={{ padding: "12px 16px", fontWeight: 600 }}>{c.vendor}</td>
+                          <td style={{ padding: "12px 16px", color: "#8892A0" }}>{c.name}</td>
+                          <td style={{ padding: "12px 16px" }}><span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, background: "#1A1F2B", color: "#8892A0" }}>{c.type}</span></td>
+                          <td style={{ padding: "12px 16px", fontSize: 12, color: "#8892A0" }}>{c.owner_name || "—"}</td>
+                          <td style={{ padding: "12px 16px", color: "#8892A0" }}>{c.end_date}</td>
+                          <td style={{ padding: "12px 16px", fontWeight: 700, color: isRecent ? "#FF6B6B" : "#6B7280" }}>D+{Math.abs(dl)}</td>
+                        </tr>
+                      );
+                    })}</tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
