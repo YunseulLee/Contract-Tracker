@@ -225,7 +225,6 @@ export default function ContractTracker() {
     { id: "dashboard", label: "대시보드", icon: "◫" },
     { id: "notifications", label: "알림 센터", icon: "🔔", badge: activeNotifs.length },
     { id: "list", label: "계약 목록", icon: "☰" },
-    { id: "types", label: "유형별", icon: "⬡" },
     { id: "expired", label: "계약 종료", icon: "⏹", badge: expiredContracts.length > 0 ? expiredContracts.length : undefined },
     { id: "trash", label: "휴지통", icon: "🗑" },
   ];
@@ -420,41 +419,6 @@ export default function ContractTracker() {
                   })}</tbody>
                 </table>
                 {filtered.length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#4A5568", fontSize: 13 }}>검색 결과 없음</div>}
-              </div>
-            </div>
-          )}
-
-          {/* Types */}
-          {view === "types" && (
-            <div style={{ animation: "fadeIn 0.4s ease" }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#8892A0", marginBottom: 20 }}>계약 유형별 현황</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
-                {existingTypes.map((type) => {
-                  const tc = contracts.filter((c) => c.type === type && c.status === "active");
-                  const cost = tc.reduce((s, c) => s + (c.currency === "USD" ? (c.annual_cost || 0) : 0), 0);
-                  return (
-                    <div key={type} style={{ padding: 20, background: "#111620", border: "1px solid #1A1F2B", borderRadius: 14 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
-                        <div><div style={{ fontSize: 16, fontWeight: 700 }}>{type}</div><div style={{ fontSize: 11, color: "#6B7280" }}>{tc.length}건 활성</div></div>
-                        <div style={{ fontSize: 18, fontWeight: 700, color: "#4A6FA5" }}>{formatCurrency(cost)}</div>
-                      </div>
-                      {tc.map((c) => {
-                        const urg = getUrgencyLevel(c);
-                        const uc = urgencyColors[urg];
-                        const dl = Math.min(getDaysUntil(c.end_date), getDaysUntil(c.renewal_date));
-                        return (
-                          <div key={c.id} onClick={() => setShowDetail(c)} style={{ padding: "10px 12px", borderRadius: 8, background: "#0B0E14", border: "1px solid #1A1F2B", marginBottom: 6, cursor: "pointer", display: "flex", justifyContent: "space-between" }}>
-                            <div><div style={{ fontSize: 12, fontWeight: 500 }}>{c.vendor} — {c.name}</div><div style={{ fontSize: 10, color: "#6B7280" }}>{c.owner_name || c.studio}</div></div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ fontSize: 12, fontWeight: 600, color: uc.text }}>D{dl > 0 ? `-${dl}` : `+${Math.abs(dl)}`}</span>
-                              <span style={{ width: 6, height: 6, borderRadius: "50%", background: uc.dot }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
               </div>
             </div>
           )}
