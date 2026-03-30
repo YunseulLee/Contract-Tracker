@@ -194,7 +194,8 @@ export default function ContractTracker() {
       const ms = !searchTerm || `${c.vendor} ${c.name} ${c.notes}`.toLowerCase().includes(searchTerm.toLowerCase());
       const mt = filterType === "all" || c.type === filterType;
       const mst = filterStatus === "all" || c.status === filterStatus;
-      return ms && mt && mst;
+      const notExpired = getDaysUntil(c.end_date) >= 0;
+      return ms && mt && mst && notExpired;
     });
     list.sort((a, b) => {
       if (sortBy === "urgency") return Math.min(getDaysUntil(a.end_date), getDaysUntil(a.renewal_date)) - Math.min(getDaysUntil(b.end_date), getDaysUntil(b.renewal_date));
