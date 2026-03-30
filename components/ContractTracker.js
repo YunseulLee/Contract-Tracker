@@ -31,7 +31,15 @@ export default function ContractTracker() {
   const [showDetail, setShowDetail] = useState(null);
   const [toast, setToast] = useState(null);
   const [dismissedNotifs, setDismissedNotifs] = useState({});
-  const [notifSettings, setNotifSettings] = useState({ slackEnabled: false, slackWebhookUrl: "", slackChannel: "", emailEnabled: false, emailRecipients: "" });
+  const [notifSettings, setNotifSettings] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("ct_notif_settings");
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return { slackEnabled: false, slackWebhookUrl: "", slackChannel: "", emailEnabled: false, emailRecipients: "" };
+  });
   const [showNotifSettings, setShowNotifSettings] = useState(false);
   const [showOptionsManager, setShowOptionsManager] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -80,6 +88,10 @@ export default function ContractTracker() {
       else { await supabase.from("app_settings").insert({ key: "custom_options", value }); }
     } catch {}
   };
+
+  useEffect(() => {
+    try { localStorage.setItem("ct_notif_settings", JSON.stringify(notifSettings)); } catch {}
+  }, [notifSettings]);
 
   // 병렬 로딩: contracts + custom options 동시 요청
   useEffect(() => {
@@ -138,16 +150,31 @@ export default function ContractTracker() {
     showToast(`${rows.length}건 Import 완료`, "success");
   };
 
+  const csvEscape = (val) => {
+    const s = String(val ?? "");
+    return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
   const exportCSV = () => {
     const h = "vendor,name,supplier,type,start_date,end_date,renewal_date,auto_renew,notice_days,annual_cost,currency,studio,owner_name,owner_email,wiki_url,notes";
-    const r = contracts.map((c) => [c.vendor, c.name, c.supplier || "", c.type, c.start_date, c.end_date, c.renewal_date, c.auto_renew, c.auto_renew_notice_days, c.annual_cost, c.currency, c.studio, c.owner_name || "", c.owner_email || "", c.wiki_url || "", `"${(c.notes || "").replace(/"/g, '""')}"`].join(","));
+    const r = contracts.map((c) => [c.vendor, c.name, c.supplier || "", c.type, c.start_date, c.end_date, c.renewal_date, c.auto_renew, c.auto_renew_notice_days, c.annual_cost, c.currency, c.studio, c.owner_name || "", c.owner_email || "", c.wiki_url || "", c.notes || ""].map(csvEscape).join(","));
     const blob = new Blob(["\uFEFF" + [h, ...r].join("\n")], { type: "text/csv;charset=utf-8" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `contracts_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `contracts_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    URL.revokeObjectURL(url);
   };
 
   const sendSlack = async (msg) => {
     if (!notifSettings.slackWebhookUrl) { showToast("Slack Webhook URL 미설정", "error"); return; }
-    try { await fetch(notifSettings.slackWebhookUrl, { method: "POST", body: JSON.stringify({ text: msg }) }); showToast("Slack 발송 완료", "success"); } catch { showToast("Slack 발송 실패", "error"); }
+    try {
+      const res = await fetch("/api/slack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ webhookUrl: notifSettings.slackWebhookUrl, message: msg }),
+      });
+      if (res.ok) showToast("Slack 발송 완료", "success");
+      else { const data = await res.json(); showToast(data.error || "Slack 발송 실패", "error"); }
+    } catch { showToast("Slack 발송 실패", "error"); }
   };
 
   const sendEmail = (subject, body) => {
@@ -181,7 +208,6 @@ export default function ContractTracker() {
     const a = contracts.filter((c) => c.status === "active");
     return {
       total: a.length,
-      totalCostUSD: a.filter((c) => c.currency === "USD").reduce((s, c) => s + (c.annual_cost || 0), 0),
       autoRenewCount: a.filter((c) => c.auto_renew).length,
       urgentCount: a.filter((c) => ["critical", "expired"].includes(getUrgencyLevel(c))).length,
     };
@@ -244,14 +270,13 @@ export default function ContractTracker() {
           {/* Dashboard */}
           {view === "dashboard" && (
             <div style={{ animation: "fadeIn 0.4s ease" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 28 }}>
                 {[
                   { label: "전체 계약", value: stats.total, sub: "건", color: "#4A6FA5" },
-                  { label: "연간 비용 (USD)", value: formatCurrency(stats.totalCostUSD), sub: "/yr", color: "#6BA3FF" },
                   { label: "자동갱신", value: stats.autoRenewCount, sub: "건", color: "#00D4AA" },
                   { label: "알림", value: activeNotifs.length, sub: "건", color: criticalCount > 0 ? "#FF6B6B" : "#FFE066" },
                 ].map((card, i) => (
-                  <div key={i} onClick={i === 3 ? () => setView("notifications") : undefined} style={{ padding: "20px 22px", background: "#111620", border: "1px solid #1A1F2B", borderRadius: 14, cursor: i === 3 ? "pointer" : "default", animation: `fadeIn 0.4s ease ${i * 0.08}s both` }}>
+                  <div key={i} onClick={i === 2 ? () => setView("notifications") : undefined} style={{ padding: "20px 22px", background: "#111620", border: "1px solid #1A1F2B", borderRadius: 14, cursor: i === 2 ? "pointer" : "default", animation: `fadeIn 0.4s ease ${i * 0.08}s both` }}>
                     <div style={{ fontSize: 10, color: "#6B7280", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 10 }}>{card.label}</div>
                     <div style={{ fontSize: 26, fontWeight: 700, color: card.color }}>{card.value}<span style={{ fontSize: 12, color: "#4A5568", marginLeft: 4 }}>{card.sub}</span></div>
                   </div>
@@ -344,7 +369,7 @@ export default function ContractTracker() {
               </div>
               <div style={{ borderRadius: 12, border: "1px solid #1A1F2B", overflow: "hidden" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead><tr style={{ background: "#111620" }}>{["상태", "벤더", "계약명", "유형", "담당자", "종료일", "D-Day", "연간비용", ""].map((h, i) => <th key={i} style={{ padding: "12px 16px", textAlign: "left", fontSize: 10, color: "#6B7280", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 600, borderBottom: "1px solid #1A1F2B" }}>{h}</th>)}</tr></thead>
+                  <thead><tr style={{ background: "#111620" }}>{["상태", "벤더", "계약명", "유형", "담당자", "종료일", "D-Day", ""].map((h, i) => <th key={i} style={{ padding: "12px 16px", textAlign: "left", fontSize: 10, color: "#6B7280", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 600, borderBottom: "1px solid #1A1F2B" }}>{h}</th>)}</tr></thead>
                   <tbody>{filtered.map((c) => {
                     const urg = getUrgencyLevel(c);
                     const dl = Math.min(getDaysUntil(c.end_date), getDaysUntil(c.renewal_date));
@@ -359,7 +384,6 @@ export default function ContractTracker() {
                         <td style={{ padding: "12px 16px", fontSize: 12, color: "#8892A0" }}>{c.owner_name || "—"}</td>
                         <td style={{ padding: "12px 16px", color: "#8892A0" }}>{c.end_date}</td>
                         <td style={{ padding: "12px 16px", fontWeight: 700, color: isTerm ? "#6B7280" : uc.text }}>{isTerm ? "종료" : dl > 0 ? `D-${dl}` : dl === 0 ? "D-Day" : `D+${Math.abs(dl)}`}</td>
-                        <td style={{ padding: "12px 16px", fontWeight: 600 }}>{formatCurrency(c.annual_cost, c.currency)}</td>
                         <td style={{ padding: "12px 16px", display: "flex", gap: 6 }}>
                           <button onClick={(e) => { e.stopPropagation(); setEditContract(c); setShowForm(true); }} style={{ background: "none", border: "1px solid #2E3440", borderRadius: 6, color: "#6B7280", padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>수정</button>
                           <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }} style={{ background: "none", border: "1px solid #8B3A3A40", borderRadius: 6, color: "#FF6B6B", padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>삭제</button>
@@ -446,7 +470,7 @@ export default function ContractTracker() {
 
       {/* Modals */}
       <Modal isOpen={!!showDetail} onClose={() => setShowDetail(null)} title="계약 상세" width={650}>
-        {showDetail && <ContractDetailWithAudit contract={showDetail} onToggleStatus={toggleContractStatus} onEdit={(c) => { setEditContract(c); setShowForm(true); setShowDetail(null); }} onDelete={(c) => { setDeleteTarget(c); setShowDetail(null); }} onRefresh={async (msg) => { await loadContracts(); setShowDetail(null); if (msg) showToast(msg, "success"); }} />}
+        {showDetail && <ContractDetailWithAudit contract={contracts.find((x) => x.id === showDetail.id) || showDetail} onToggleStatus={toggleContractStatus} onEdit={(c) => { setEditContract(c); setShowForm(true); setShowDetail(null); }} onDelete={(c) => { setDeleteTarget(c); setShowDetail(null); }} onRefresh={async (msg) => { await loadContracts(); setShowDetail(null); if (msg) showToast(msg, "success"); }} />}
       </Modal>
 
       <Modal isOpen={showForm} onClose={() => { setShowForm(false); setEditContract(null); }} title={editContract ? "계약 수정" : "계약 등록"}>

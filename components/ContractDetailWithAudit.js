@@ -12,14 +12,17 @@ export default function ContractDetailWithAudit({ contract, onToggleStatus, onEd
   const [auditLoading, setAuditLoading] = useState(false);
   const c = contract;
 
-  const loadAudit = async () => {
-    setAuditLoading(true);
-    const { data, error } = await supabase.from("audit_log").select("*").eq("contract_id", c.id).order("created_at", { ascending: false });
-    if (!error && data) setAuditLogs(data);
-    setAuditLoading(false);
-  };
-
-  useEffect(() => { if (tab === "history") loadAudit(); }, [tab, c.id]);
+  useEffect(() => {
+    if (tab !== "history") return;
+    let cancelled = false;
+    (async () => {
+      setAuditLoading(true);
+      const { data, error } = await supabase.from("audit_log").select("*").eq("contract_id", c.id).order("created_at", { ascending: false });
+      if (!cancelled && !error && data) setAuditLogs(data);
+      if (!cancelled) setAuditLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [tab, c.id]);
 
   const actionLabels = { create: "등록", update: "수정", delete: "삭제", restore: "복구" };
   const actionColors = { create: "#66FFCC", update: "#6BA3FF", delete: "#FF6B6B", restore: "#FFE066" };

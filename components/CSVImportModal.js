@@ -17,12 +17,32 @@ export default function CSVImportModal({ isOpen, onClose, onImport }) {
     r.readAsText(f);
   };
 
+  const parseCSVLine = (line) => {
+    const fields = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+        else if (ch === '"') { inQuotes = false; }
+        else { current += ch; }
+      } else {
+        if (ch === '"') { inQuotes = true; }
+        else if (ch === ",") { fields.push(current.trim()); current = ""; }
+        else { current += ch; }
+      }
+    }
+    fields.push(current.trim());
+    return fields;
+  };
+
   const parsePreview = (text) => {
-    const lines = text.trim().split("\n");
+    const lines = text.trim().split("\n").map((l) => l.replace(/\r$/, ""));
     if (lines.length < 2) { setPreview([]); return; }
-    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+    const headers = parseCSVLine(lines[0]).map((h) => h.trim().toLowerCase());
     const rows = lines.slice(1).map((line) => {
-      const vals = line.split(",").map((v) => v.trim());
+      const vals = parseCSVLine(line);
       const obj = {};
       headers.forEach((h, idx) => (obj[h] = vals[idx] || ""));
       return {

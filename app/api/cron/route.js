@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
 function getDaysUntil(dateStr) {
@@ -180,9 +180,10 @@ export async function GET(request) {
       const studioMap = {};
       contracts.forEach((c) => {
         const key = c.studio || "미지정";
-        if (!studioMap[key]) studioMap[key] = { count: 0, costUSD: 0 };
+        if (!studioMap[key]) studioMap[key] = { count: 0, costUSD: 0, costKRW: 0 };
         studioMap[key].count++;
-        if (c.currency === "USD") studioMap[key].costUSD += c.annual_cost || 0;
+        if (c.currency === "KRW") studioMap[key].costKRW += c.annual_cost || 0;
+        else studioMap[key].costUSD += c.annual_cost || 0;
       });
 
       let message = `📊 *[Contract Tracker] 주간 계약 리포트*\n${dateStr}\n\n`;
@@ -223,7 +224,7 @@ export async function GET(request) {
       Object.entries(studioMap)
         .sort(([, a], [, b]) => b.costUSD - a.costUSD)
         .forEach(([studio, data]) => {
-          message += `> *${studio}*: ${data.count}건 | ${formatCurrency(data.costUSD, "USD")}\n`;
+          message += `> *${studio}*: ${data.count}건 | ${formatCurrency(data.costUSD, "USD")}${data.costKRW > 0 ? ` + ${formatCurrency(data.costKRW, "KRW")}` : ""}\n`;
         });
 
       message += `\n_IT Procurement — Contract Tracker (주간 리포트)_`;
@@ -274,7 +275,6 @@ export async function GET(request) {
 
     // 에스컬레이션 알림 분리 (7일 이내 또는 만료됨)
     const escalations = alerts.filter((a) => a.level === "escalation");
-    const regularAlerts = alerts.filter((a) => a.level !== "escalation");
 
     // 일반 채널 알림
     let message = `📊 *[Contract Tracker] 일일 계약 알림*\n${dateStr}\n\n`;

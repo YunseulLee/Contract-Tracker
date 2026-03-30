@@ -13,11 +13,13 @@ const CONFLUENCE_TOKEN = process.env.CONFLUENCE_API_TOKEN;
 
 // Studio category page IDs → studio name (2025 + 2026)
 const STUDIO_ANCESTORS = {
+  // 2025
   '91093896': 'KRAFTON HQ',
   '91082469': 'Bluehole Studio',
   '91096574': 'inZOI Studio',
   '91096667': 'OmniCraft Labs',
   '91087127': '클라우드 정산',
+  // 2026
   '793187133': 'KRAFTON HQ',
   '793123395': 'Bluehole Studio',
   '793218974': 'inZOI Studio',

@@ -75,9 +75,14 @@ export default function ContractForm({ contract, onSave, onCancel, existingStudi
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "center" }}>
         <InputField label="분할 결제">
           <div onClick={() => {
-            up("installment_enabled", !form.installment_enabled);
-            if (!form.installment_enabled && form.installment_schedule.length === 0)
-              up("installment_schedule", [{ date: "", amount: 0, label: "1차", paid: false }]);
+            const willEnable = !form.installment_enabled;
+            setForm((p) => ({
+              ...p,
+              installment_enabled: willEnable,
+              ...(willEnable && p.installment_schedule.length === 0
+                ? { installment_schedule: [{ date: "", amount: 0, label: "1차", paid: false }] }
+                : {}),
+            }));
           }} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "10px 0" }}>
             <div style={{ width: 44, height: 24, borderRadius: 12, background: form.installment_enabled ? "#4A6FA5" : "#2E3440", position: "relative", transition: "background 0.3s" }}>
               <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#E8ECF2", position: "absolute", top: 3, left: form.installment_enabled ? 23 : 3, transition: "left 0.3s" }} />
@@ -139,7 +144,10 @@ export default function ContractForm({ contract, onSave, onCancel, existingStudi
 
       <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 24 }}>
         <button onClick={onCancel} style={{ padding: "10px 24px", borderRadius: 10, border: "1px solid #2E3440", background: "transparent", color: "#8892A0", fontSize: 14, cursor: "pointer" }}>취소</button>
-        <button onClick={() => onSave(form)} style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #4A6FA5, #3A5A8A)", color: "#E8ECF2", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>{contract ? "수정" : "등록"}</button>
+        <button onClick={() => {
+          if (!form.vendor.trim() || !form.name.trim() || !form.end_date) return;
+          onSave(form);
+        }} disabled={!form.vendor.trim() || !form.name.trim() || !form.end_date} style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: (!form.vendor.trim() || !form.name.trim() || !form.end_date) ? "#2E3440" : "linear-gradient(135deg, #4A6FA5, #3A5A8A)", color: (!form.vendor.trim() || !form.name.trim() || !form.end_date) ? "#555" : "#E8ECF2", fontSize: 14, fontWeight: 600, cursor: (!form.vendor.trim() || !form.name.trim() || !form.end_date) ? "default" : "pointer" }}>{contract ? "수정" : "등록"}</button>
       </div>
     </div>
   );

@@ -98,20 +98,86 @@ CREATE TABLE IF NOT EXISTS renewal_history (
 );
 CREATE INDEX IF NOT EXISTS idx_renewal_history_contract_id ON renewal_history(contract_id);
 
--- 5. RLS 정책 (전체 접근 허용)
+-- 5. user_roles 테이블 (AuthProvider, UserManager에서 사용)
+CREATE TABLE IF NOT EXISTS user_roles (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL UNIQUE,
+  email TEXT,
+  role TEXT DEFAULT 'viewer' CHECK (role IN ('admin', 'viewer')),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON user_roles(user_id);
+
+-- 6. contracts 성능 인덱스 (자주 사용되는 쿼리 최적화)
+CREATE INDEX IF NOT EXISTS idx_contracts_is_deleted ON contracts(is_deleted);
+CREATE INDEX IF NOT EXISTS idx_contracts_status ON contracts(status);
+CREATE INDEX IF NOT EXISTS idx_contracts_end_date ON contracts(end_date);
+CREATE INDEX IF NOT EXISTS idx_contracts_status_deleted ON contracts(status, is_deleted);
+
+-- 7. updated_at 자동 갱신 트리거
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_contracts_updated_at') THEN
+    CREATE TRIGGER trg_contracts_updated_at BEFORE UPDATE ON contracts
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_app_settings_updated_at') THEN
+    CREATE TRIGGER trg_app_settings_updated_at BEFORE UPDATE ON app_settings
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_user_roles_updated_at') THEN
+    CREATE TRIGGER trg_user_roles_updated_at BEFORE UPDATE ON user_roles
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  END IF;
+END $$;
+
+-- 8. RLS 정책 (인증 사용자만 접근)
 ALTER TABLE contracts ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all access" ON contracts FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated users full access" ON contracts
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON contracts
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all access" ON app_settings FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated users full access" ON app_settings
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON app_settings
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all access" ON audit_log FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated users full access" ON audit_log
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON audit_log
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 ALTER TABLE renewal_history ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all access" ON renewal_history FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated users full access" ON renewal_history
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON renewal_history
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
 
--- 6. 샘플 데이터 (최초 1회만)
+ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users can read" ON user_roles
+  FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Users can manage own role" ON user_roles
+  FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Admins can update roles" ON user_roles
+  FOR UPDATE TO authenticated USING (
+    EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin')
+  );
+CREATE POLICY "Service role full access" ON user_roles
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- 9. 샘플 데이터 (최초 1회만)
 INSERT INTO contracts (vendor, name, type, start_date, end_date, renewal_date, auto_renew, auto_renew_notice_days, annual_cost, currency, studio, notes)
 SELECT * FROM (VALUES
   ('Datadog', 'APM & Infrastructure Monitoring', 'SaaS', '2025-03-01'::DATE, '2026-02-28'::DATE, '2025-12-28'::DATE, true, 60, 48000::NUMERIC, 'USD', 'KRAFTON', 'GS네오텍 통해 계약'),

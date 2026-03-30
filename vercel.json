@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/confluence-sync?mode=incremental",
-      "schedule": "30 0 * * *"
+      "schedule": "0 14 * * *"
     },
     {
       "path": "/api/cron",
