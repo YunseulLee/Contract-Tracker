@@ -28,6 +28,7 @@ export default function ContractTracker() {
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("active");
   const [sortBy, setSortBy] = useState("urgency");
+  const [expiredSortBy, setExpiredSortBy] = useState("end_date_desc");
   const [showDetail, setShowDetail] = useState(null);
   const [toast, setToast] = useState(null);
   const [dismissedNotifs, setDismissedNotifs] = useState({});
@@ -197,6 +198,8 @@ export default function ContractTracker() {
     });
     list.sort((a, b) => {
       if (sortBy === "urgency") return Math.min(getDaysUntil(a.end_date), getDaysUntil(a.renewal_date)) - Math.min(getDaysUntil(b.end_date), getDaysUntil(b.renewal_date));
+      if (sortBy === "end_date_asc") return (a.end_date || "").localeCompare(b.end_date || "");
+      if (sortBy === "end_date_desc") return (b.end_date || "").localeCompare(a.end_date || "");
       if (sortBy === "cost") return b.annual_cost - a.annual_cost;
       if (sortBy === "vendor") return a.vendor.localeCompare(b.vendor);
       return 0;
@@ -388,7 +391,7 @@ export default function ContractTracker() {
                 <input style={{ ...inputStyle, width: 240 }} placeholder="🔍 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 <select style={{ ...inputStyle, width: 160 }} value={filterType} onChange={(e) => setFilterType(e.target.value)}><option value="all">모든 유형</option>{existingTypes.map((t) => <option key={t} value={t}>{t}</option>)}</select>
                 <select style={{ ...inputStyle, width: 130 }} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}><option value="all">전체 상태</option><option value="active">활성</option><option value="terminated">종료</option></select>
-                <select style={{ ...inputStyle, width: 140 }} value={sortBy} onChange={(e) => setSortBy(e.target.value)}><option value="urgency">긴급도순</option><option value="cost">비용순</option><option value="vendor">벤더순</option></select>
+                <select style={{ ...inputStyle, width: 140 }} value={sortBy} onChange={(e) => setSortBy(e.target.value)}><option value="urgency">긴급도순</option><option value="end_date_asc">종료일 ↑</option><option value="end_date_desc">종료일 ↓</option><option value="cost">비용순</option><option value="vendor">벤더순</option></select>
               </div>
               <div style={{ borderRadius: 12, border: "1px solid #1A1F2B", overflow: "hidden" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -459,13 +462,23 @@ export default function ContractTracker() {
           {view === "expired" && (
             <div style={{ animation: "fadeIn 0.4s ease" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-                <div><div style={{ fontSize: 18, fontWeight: 700 }}>⏹ 계약 종료</div><div style={{ fontSize: 12, color: "#6B7280", marginTop: 4 }}>계약 기간이 만료된 계약 목록입니다.</div></div>
+                <div><div style={{ fontSize: 18, fontWeight: 700 }}>⏹ 계약 종료</div><div style={{ fontSize: 12, color: "#6B7280", marginTop: 4 }}>계약 기간이 만료된 계약 {expiredContracts.length}건</div></div>
+                <select style={{ ...inputStyle, width: 160 }} value={expiredSortBy} onChange={(e) => setExpiredSortBy(e.target.value)}>
+                  <option value="end_date_desc">최근 종료순</option>
+                  <option value="end_date_asc">오래된 종료순</option>
+                  <option value="vendor">벤더순</option>
+                </select>
               </div>
               {expiredContracts.length === 0 ? <div style={{ textAlign: "center", padding: 60, color: "#4A5568", fontSize: 13 }}>종료된 계약이 없습니다.</div> : (
                 <div style={{ borderRadius: 12, border: "1px solid #1A1F2B", overflow: "hidden" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead><tr style={{ background: "#111620" }}>{["상태", "벤더", "계약명", "유형", "담당자", "종료일", "경과"].map((h, i) => <th key={i} style={{ padding: "12px 16px", textAlign: "left", fontSize: 10, color: "#6B7280", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 600, borderBottom: "1px solid #1A1F2B" }}>{h}</th>)}</tr></thead>
-                    <tbody>{expiredContracts.sort((a, b) => getDaysUntil(a.end_date) - getDaysUntil(b.end_date)).map((c) => {
+                    <tbody>{[...expiredContracts].sort((a, b) => {
+                      if (expiredSortBy === "end_date_desc") return (b.end_date || "").localeCompare(a.end_date || "");
+                      if (expiredSortBy === "end_date_asc") return (a.end_date || "").localeCompare(b.end_date || "");
+                      if (expiredSortBy === "vendor") return a.vendor.localeCompare(b.vendor);
+                      return 0;
+                    }).map((c) => {
                       const dl = getDaysUntil(c.end_date);
                       const isRecent = dl >= -15;
                       return (
