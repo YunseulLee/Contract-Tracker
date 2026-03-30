@@ -1,12 +1,25 @@
 {
   "crons": [
     {
+      "path": "/api/confluence-sync?mode=incremental",
+      "schedule": "30 0 * * *"
+    },
+    {
       "path": "/api/cron",
       "schedule": "0 1 * * *"
     },
     {
       "path": "/api/cron?mode=weekly",
-      "schedule": "0 2 * * 1"
+      "schedule": "0 1 * * 1"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" }
+      ]
     }
   ]
 }
