@@ -193,9 +193,9 @@ export default function ContractTracker() {
     let list = contracts.filter((c) => {
       const ms = !searchTerm || `${c.vendor} ${c.name} ${c.notes}`.toLowerCase().includes(searchTerm.toLowerCase());
       const mt = filterType === "all" || c.type === filterType;
-      const mst = filterStatus === "all" || c.status === filterStatus;
+      const notTerminated = c.status !== "terminated";
       const notExpired = getDaysUntil(c.end_date) >= 0;
-      return ms && mt && mst && notExpired;
+      return ms && mt && notTerminated && notExpired;
     });
     list.sort((a, b) => {
       if (sortBy === "urgency") return Math.min(getDaysUntil(a.end_date), getDaysUntil(a.renewal_date)) - Math.min(getDaysUntil(b.end_date), getDaysUntil(b.renewal_date));
@@ -217,9 +217,13 @@ export default function ContractTracker() {
     };
   }, [contracts]);
 
-  const expiredContracts = useMemo(() => contracts.filter((c) => c.status === "active" && getDaysUntil(c.end_date) < 0), [contracts]);
+  const expiredContracts = useMemo(() => contracts.filter((c) => c.status === "terminated" || (c.status === "active" && getDaysUntil(c.end_date) < 0)), [contracts]);
 
-  const recentlyExpired = useMemo(() => contracts.filter((c) => c.status === "active" && (() => { const d = getDaysUntil(c.end_date); return d < 0 && d >= -15; })()), [contracts]);
+  const recentlyExpired = useMemo(() => contracts.filter((c) => {
+    if (c.status === "terminated") return true;
+    if (c.status === "active") { const d = getDaysUntil(c.end_date); return d < 0 && d >= -15; }
+    return false;
+  }), [contracts]);
 
   const navItems = [
     { id: "dashboard", label: "대시보드", icon: "◫" },
@@ -390,7 +394,6 @@ export default function ContractTracker() {
               <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
                 <input style={{ ...inputStyle, width: 240 }} placeholder="🔍 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 <select style={{ ...inputStyle, width: 160 }} value={filterType} onChange={(e) => setFilterType(e.target.value)}><option value="all">모든 유형</option>{existingTypes.map((t) => <option key={t} value={t}>{t}</option>)}</select>
-                <select style={{ ...inputStyle, width: 130 }} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}><option value="all">전체 상태</option><option value="active">활성</option><option value="terminated">종료</option></select>
                 <select style={{ ...inputStyle, width: 140 }} value={sortBy} onChange={(e) => setSortBy(e.target.value)}><option value="urgency">긴급도순</option><option value="end_date_asc">종료일 ↑</option><option value="end_date_desc">종료일 ↓</option><option value="cost">비용순</option><option value="vendor">벤더순</option></select>
               </div>
               <div style={{ borderRadius: 12, border: "1px solid #1A1F2B", overflow: "hidden" }}>
@@ -445,16 +448,19 @@ export default function ContractTracker() {
                       return 0;
                     }).map((c) => {
                       const dl = getDaysUntil(c.end_date);
-                      const isRecent = dl >= -15;
+                      const isTerm = c.status === "terminated";
+                      const isRecent = isTerm || (dl < 0 && dl >= -15);
+                      const badgeLabel = isTerm ? "종료 처리" : dl < 0 && dl >= -15 ? "최근 만료" : "만료";
+                      const badgeColor = isTerm ? { bg: "#1B2333", color: "#6BA3FF", border: "#2E4A7A" } : isRecent ? { bg: "#2D1B1B", color: "#FF6B6B", border: "#8B3A3A" } : { bg: "#1A1D23", color: "#6B7280", border: "#2E3440" };
                       return (
-                        <tr key={c.id} onClick={() => setShowDetail(c)} style={{ borderBottom: "1px solid #1A1F2B", cursor: "pointer", background: isRecent ? "#2D1B1B08" : "transparent" }} onMouseEnter={(e) => e.currentTarget.style.background = "#111620"} onMouseLeave={(e) => e.currentTarget.style.background = isRecent ? "#2D1B1B08" : "transparent"}>
-                          <td style={{ padding: "12px 16px" }}><span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: isRecent ? "#2D1B1B" : "#1A1D23", color: isRecent ? "#FF6B6B" : "#6B7280", border: `1px solid ${isRecent ? "#8B3A3A" : "#2E3440"}` }}>{isRecent ? "최근 종료" : "종료"}</span></td>
+                        <tr key={c.id} onClick={() => setShowDetail(c)} style={{ borderBottom: "1px solid #1A1F2B", cursor: "pointer" }} onMouseEnter={(e) => e.currentTarget.style.background = "#111620"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                          <td style={{ padding: "12px 16px" }}><span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: badgeColor.bg, color: badgeColor.color, border: `1px solid ${badgeColor.border}` }}>{badgeLabel}</span></td>
                           <td style={{ padding: "12px 16px", fontWeight: 600 }}>{c.vendor}</td>
                           <td style={{ padding: "12px 16px", color: "#8892A0" }}>{c.name}</td>
                           <td style={{ padding: "12px 16px" }}><span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, background: "#1A1F2B", color: "#8892A0" }}>{c.type}</span></td>
                           <td style={{ padding: "12px 16px", fontSize: 12, color: "#8892A0" }}>{c.owner_name || "—"}</td>
                           <td style={{ padding: "12px 16px", color: "#8892A0" }}>{c.end_date}</td>
-                          <td style={{ padding: "12px 16px", fontWeight: 700, color: isRecent ? "#FF6B6B" : "#6B7280" }}>D+{Math.abs(dl)}</td>
+                          <td style={{ padding: "12px 16px", fontWeight: 700, color: isTerm ? "#6BA3FF" : isRecent ? "#FF6B6B" : "#6B7280" }}>{dl >= 0 ? `D-${dl}` : `D+${Math.abs(dl)}`}</td>
                         </tr>
                       );
                     })}</tbody>
