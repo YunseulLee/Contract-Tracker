@@ -295,28 +295,6 @@ export default function ContractTracker() {
                   </div>
                 ))}
               </div>
-              {/* 갱신 검토 필요 섹션 */}
-              {contracts.filter((c) => c.renewal_status === "pending_review").length > 0 && (
-                <div style={{ marginBottom: 28 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600, color: "#9BA1AE", marginBottom: 14 }}><RefreshCw size={16} strokeWidth={2} /> 갱신 검토 필요</div>
-                  {contracts.filter((c) => c.renewal_status === "pending_review").map((c, i) => {
-                    const dl = getDaysUntil(c.end_date);
-                    return (
-                      <div key={c.id} onClick={() => setShowDetail(c)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", background: "#2D2A18", border: "1px solid #8B833A40", borderRadius: 10, marginBottom: 6, cursor: "pointer", animation: `slideIn 0.3s ease ${i * 0.06}s both` }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                          <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: "#2D2A18", color: "#FBBF24", border: "1px solid #8B833A" }}>⏳ 검토 대기</span>
-                          <div><div style={{ fontSize: 14, fontWeight: 600 }}>{c.vendor}</div><div style={{ fontSize: 12, color: "#6B7280" }}>{c.name} · {c.owner_name || c.studio} · {formatCurrency(c.annual_cost, c.currency)}</div></div>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <div style={{ fontSize: 20, fontWeight: 700, color: dl <= 30 ? "#F87171" : "#FBBF24", fontFamily: "'JetBrains Mono', monospace" }}>{dl > 0 ? `D-${dl}` : `D+${Math.abs(dl)}`}</div>
-                          <div style={{ fontSize: 11, color: "#6B7280" }}>{c.renewal_count > 0 ? `${c.renewal_count}차 갱신` : "최초 갱신"}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
               <TimelineCalendar contracts={contracts} onSelectContract={setShowDetail} />
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600, color: "#9BA1AE", marginBottom: 14 }}><AlertTriangle size={16} strokeWidth={2} /> 주의가 필요한 계약</div>
               {contracts.filter((c) => c.status === "active" && (() => { const d = Math.min(getDaysUntil(c.end_date), getDaysUntil(c.renewal_date)); return d > 0 && d <= 90; })()).sort((a, b) => Math.min(getDaysUntil(a.end_date), getDaysUntil(a.renewal_date)) - Math.min(getDaysUntil(b.end_date), getDaysUntil(b.renewal_date))).map((c, i) => {
