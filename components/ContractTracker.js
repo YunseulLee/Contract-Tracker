@@ -232,7 +232,7 @@ export default function ContractTracker() {
     { id: "dashboard", label: "대시보드", icon: LayoutDashboard },
     { id: "notifications", label: "알림 센터", icon: Bell, badge: activeNotifs.length },
     { id: "list", label: "계약 목록", icon: List },
-    { id: "expired", label: "계약 종료", icon: Clock, badge: expiredContracts.length > 0 ? expiredContracts.length : undefined },
+    { id: "expired", label: "계약 종료", icon: Clock },
     { id: "trash", label: "휴지통", icon: Trash2 },
   ];
 
