@@ -194,7 +194,7 @@ export default function ContractTracker() {
 
   const filtered = useMemo(() => {
     let list = contracts.filter((c) => {
-      const ms = !searchTerm || `${c.vendor} ${c.name} ${c.notes}`.toLowerCase().includes(searchTerm.toLowerCase());
+      const ms = !searchTerm || `${c.vendor} ${c.name} ${c.owner_name || ""} ${c.supplier || ""} ${c.type} ${c.notes}`.toLowerCase().includes(searchTerm.toLowerCase());
       const mt = filterType === "all" || c.type === filterType;
       const notTerminated = c.status !== "terminated";
       const notExpired = getDaysUntil(c.end_date) >= 0;
@@ -373,7 +373,7 @@ export default function ContractTracker() {
           {view === "list" && (
             <div style={{ animation: "fadeIn 0.4s ease" }}>
               <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-                <input style={{ ...inputStyle, width: 280 }} placeholder="검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                <input style={{ ...inputStyle, width: 280 }} placeholder="검색 (벤더, 계약명, 담당자, 유형)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 <select style={{ ...inputStyle, width: 160 }} value={filterType} onChange={(e) => setFilterType(e.target.value)}><option value="all">모든 유형</option>{existingTypes.map((t) => <option key={t} value={t}>{t}</option>)}</select>
                 <select style={{ ...inputStyle, width: 140 }} value={sortBy} onChange={(e) => setSortBy(e.target.value)}><option value="urgency">긴급도순</option><option value="end_date_asc">종료일 ↑</option><option value="end_date_desc">종료일 ↓</option><option value="cost">비용순</option><option value="vendor">벤더순</option></select>
               </div>
