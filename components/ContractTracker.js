@@ -30,6 +30,8 @@ export default function ContractTracker() {
   const [filterStatus, setFilterStatus] = useState("active");
   const [sortBy, setSortBy] = useState("urgency");
   const [expiredSortBy, setExpiredSortBy] = useState("end_date_desc");
+  const [expiredSearch, setExpiredSearch] = useState("");
+  const [expiredPage, setExpiredPage] = useState(1);
   const [showDetail, setShowDetail] = useState(null);
   const [toast, setToast] = useState(null);
   const [dismissedNotifs, setDismissedNotifs] = useState({});
@@ -406,26 +408,37 @@ export default function ContractTracker() {
           )}
 
           {/* Expired */}
-          {view === "expired" && (
+          {view === "expired" && (() => {
+            const PAGE_SIZE = 30;
+            const filteredExpired = expiredContracts.filter((c) => !expiredSearch || `${c.vendor} ${c.name} ${c.owner_name || ""}`.toLowerCase().includes(expiredSearch.toLowerCase()));
+            const sortedExpired = [...filteredExpired].sort((a, b) => {
+              if (expiredSortBy === "end_date_desc") return (b.end_date || "").localeCompare(a.end_date || "");
+              if (expiredSortBy === "end_date_asc") return (a.end_date || "").localeCompare(b.end_date || "");
+              if (expiredSortBy === "vendor") return a.vendor.localeCompare(b.vendor);
+              return 0;
+            });
+            const totalPages = Math.max(1, Math.ceil(sortedExpired.length / PAGE_SIZE));
+            const safePage = Math.min(expiredPage, totalPages);
+            const pagedExpired = sortedExpired.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+            return (
             <div style={{ animation: "fadeIn 0.4s ease" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-                <div><div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 18, fontWeight: 700 }}><Clock size={20} strokeWidth={2} /> 계약 종료</div><div style={{ fontSize: 12, color: "#6B7280", marginTop: 4 }}>계약 기간이 만료된 계약 {expiredContracts.length}건</div></div>
-                <select style={{ ...inputStyle, width: 160 }} value={expiredSortBy} onChange={(e) => setExpiredSortBy(e.target.value)}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <div><div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 18, fontWeight: 700 }}><Clock size={20} strokeWidth={2} /> 계약 종료</div><div style={{ fontSize: 12, color: "#6B7280", marginTop: 4 }}>계약 기간이 만료된 계약 {filteredExpired.length}건{expiredSearch ? ` (검색결과)` : ""}</div></div>
+              </div>
+              <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+                <input style={{ ...inputStyle, width: 280 }} placeholder="검색 (벤더, 계약명, 담당자)..." value={expiredSearch} onChange={(e) => { setExpiredSearch(e.target.value); setExpiredPage(1); }} />
+                <select style={{ ...inputStyle, width: 160 }} value={expiredSortBy} onChange={(e) => { setExpiredSortBy(e.target.value); setExpiredPage(1); }}>
                   <option value="end_date_desc">최근 종료순</option>
                   <option value="end_date_asc">오래된 종료순</option>
                   <option value="vendor">벤더순</option>
                 </select>
               </div>
-              {expiredContracts.length === 0 ? <div style={{ textAlign: "center", padding: 60, color: "#464B55", fontSize: 13 }}>종료된 계약이 없습니다.</div> : (
+              {sortedExpired.length === 0 ? <div style={{ textAlign: "center", padding: 60, color: "#464B55", fontSize: 13 }}>{expiredSearch ? "검색 결과가 없습니다." : "종료된 계약이 없습니다."}</div> : (
+                <>
                 <div style={{ borderRadius: 12, border: "1px solid #1E2029", overflow: "hidden" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead><tr style={{ background: "#1A1D25" }}>{["상태", "벤더", "계약명", "유형", "담당자", "종료일", "경과"].map((h, i) => <th key={i} style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.8px", fontWeight: 600, borderBottom: "1px solid #1E2029" }}>{h}</th>)}</tr></thead>
-                    <tbody>{[...expiredContracts].sort((a, b) => {
-                      if (expiredSortBy === "end_date_desc") return (b.end_date || "").localeCompare(a.end_date || "");
-                      if (expiredSortBy === "end_date_asc") return (a.end_date || "").localeCompare(b.end_date || "");
-                      if (expiredSortBy === "vendor") return a.vendor.localeCompare(b.vendor);
-                      return 0;
-                    }).map((c) => {
+                    <tbody>{pagedExpired.map((c) => {
                       const dl = getDaysUntil(c.end_date);
                       const isTerm = c.status === "terminated";
                       const isRecent = isTerm || (dl < 0 && dl >= -15);
@@ -433,7 +446,7 @@ export default function ContractTracker() {
                       const badgeColor = isTerm ? { bg: "#5B8DEF15", color: "#5B8DEF", border: "#2E4A7A" } : isRecent ? { bg: "#2D1B1B", color: "#F87171", border: "#8B3A3A" } : { bg: "#1A1D25", color: "#6B7280", border: "#2A2D38" };
                       return (
                         <tr key={c.id} onClick={() => setShowDetail(c)} style={{ borderBottom: "1px solid #1E2029", cursor: "pointer" }}>
-                          <td style={{ padding: "12px 16px" }}><span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: badgeColor.bg, color: badgeColor.color, border: `1px solid ${badgeColor.border}` }}>{badgeLabel}</span></td>
+                          <td style={{ padding: "12px 16px" }}><span style={{ padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, background: badgeColor.bg, color: badgeColor.color, border: `1px solid ${badgeColor.border}` }}>{badgeLabel}</span></td>
                           <td style={{ padding: "12px 16px", fontWeight: 600, color: "#EDEEF0" }}>{c.vendor}</td>
                           <td style={{ padding: "12px 16px", color: "#9BA1AE" }}>{c.name}</td>
                           <td style={{ padding: "12px 16px" }}><span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, background: "#1A1D25", color: "#9BA1AE" }}>{c.type}</span></td>
@@ -445,9 +458,20 @@ export default function ContractTracker() {
                     })}</tbody>
                   </table>
                 </div>
+                {totalPages > 1 && (
+                  <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 20 }}>
+                    <button onClick={() => setExpiredPage(Math.max(1, safePage - 1))} disabled={safePage <= 1} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #2A2D38", background: safePage <= 1 ? "transparent" : "#1A1D25", color: safePage <= 1 ? "#464B55" : "#9BA1AE", fontSize: 12, cursor: safePage <= 1 ? "default" : "pointer", fontFamily: "inherit" }}>이전</button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                      <button key={p} onClick={() => setExpiredPage(p)} style={{ padding: "6px 12px", borderRadius: 8, border: p === safePage ? "1px solid #5B8DEF" : "1px solid #2A2D38", background: p === safePage ? "#5B8DEF18" : "transparent", color: p === safePage ? "#5B8DEF" : "#6B7280", fontSize: 12, fontWeight: p === safePage ? 700 : 400, cursor: "pointer", fontFamily: "'JetBrains Mono', monospace", minWidth: 36 }}>{p}</button>
+                    ))}
+                    <button onClick={() => setExpiredPage(Math.min(totalPages, safePage + 1))} disabled={safePage >= totalPages} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #2A2D38", background: safePage >= totalPages ? "transparent" : "#1A1D25", color: safePage >= totalPages ? "#464B55" : "#9BA1AE", fontSize: 12, cursor: safePage >= totalPages ? "default" : "pointer", fontFamily: "inherit" }}>다음</button>
+                  </div>
+                )}
+                </>
               )}
             </div>
-          )}
+            );
+          })()}
 
           {/* Trash */}
           {view === "trash" && (
