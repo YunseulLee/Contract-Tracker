@@ -45,10 +45,10 @@ export default function ContractForm({ contract, onSave, onCancel, existingStudi
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "center" }}>
         <InputField label="자동갱신">
           <div onClick={() => up("auto_renew", !form.auto_renew)} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "10px 0" }}>
-            <div style={{ width: 44, height: 24, borderRadius: 12, background: form.auto_renew ? "#4A6FA5" : "#2E3440", position: "relative", transition: "background 0.3s" }}>
-              <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#E8ECF2", position: "absolute", top: 3, left: form.auto_renew ? 23 : 3, transition: "left 0.3s" }} />
+            <div style={{ width: 44, height: 24, borderRadius: 12, background: form.auto_renew ? "#5B8DEF" : "#2A2D38", position: "relative", transition: "background 0.3s" }}>
+              <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#EDEEF0", position: "absolute", top: 3, left: form.auto_renew ? 23 : 3, transition: "left 0.3s" }} />
             </div>
-            <span style={{ fontSize: 13, color: "#8892A0" }}>{form.auto_renew ? "ON" : "OFF"}</span>
+            <span style={{ fontSize: 13, color: "#9BA1AE" }}>{form.auto_renew ? "ON" : "OFF"}</span>
           </div>
         </InputField>
         {form.auto_renew && (
@@ -57,10 +57,11 @@ export default function ContractForm({ contract, onSave, onCancel, existingStudi
               {[30, 60, 90].map((d) => (
                 <button key={d} onClick={() => up("auto_renew_notice_days", d)} style={{
                   flex: 1, padding: "10px", borderRadius: 8,
-                  border: `2px solid ${form.auto_renew_notice_days === d ? "#4A6FA5" : "#2E3440"}`,
-                  background: form.auto_renew_notice_days === d ? "#1B2333" : "#0D1017",
-                  color: form.auto_renew_notice_days === d ? "#6BA3FF" : "#6B7280",
+                  border: `2px solid ${form.auto_renew_notice_days === d ? "#5B8DEF" : "#2A2D38"}`,
+                  background: form.auto_renew_notice_days === d ? "#1B2333" : "#0A0C10",
+                  color: form.auto_renew_notice_days === d ? "#5B8DEF" : "#6B7280",
                   fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "all 0.2s",
+                  fontFamily: "'JetBrains Mono', monospace",
                 }}>{d}일</button>
               ))}
             </div>
@@ -69,8 +70,8 @@ export default function ContractForm({ contract, onSave, onCancel, existingStudi
       </div>
 
       {/* 분할 결제 */}
-      <div style={{ padding: "14px 0 6px", borderTop: "1px solid #1A1F2B", marginTop: 8 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: "#6BA3FF", letterSpacing: "1px", textTransform: "uppercase", marginBottom: 12 }}>💳 결제 방식</div>
+      <div style={{ padding: "14px 0 6px", borderTop: "1px solid #1E2029", marginTop: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "#5B8DEF", letterSpacing: "1px", textTransform: "uppercase", marginBottom: 12 }}>💳 결제 방식</div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "center" }}>
         <InputField label="분할 결제">
@@ -84,10 +85,10 @@ export default function ContractForm({ contract, onSave, onCancel, existingStudi
                 : {}),
             }));
           }} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "10px 0" }}>
-            <div style={{ width: 44, height: 24, borderRadius: 12, background: form.installment_enabled ? "#4A6FA5" : "#2E3440", position: "relative", transition: "background 0.3s" }}>
-              <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#E8ECF2", position: "absolute", top: 3, left: form.installment_enabled ? 23 : 3, transition: "left 0.3s" }} />
+            <div style={{ width: 44, height: 24, borderRadius: 12, background: form.installment_enabled ? "#5B8DEF" : "#2A2D38", position: "relative", transition: "background 0.3s" }}>
+              <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#EDEEF0", position: "absolute", top: 3, left: form.installment_enabled ? 23 : 3, transition: "left 0.3s" }} />
             </div>
-            <span style={{ fontSize: 13, color: "#8892A0" }}>{form.installment_enabled ? "ON" : "OFF (일시불)"}</span>
+            <span style={{ fontSize: 13, color: "#9BA1AE" }}>{form.installment_enabled ? "ON" : "OFF (일시불)"}</span>
           </div>
         </InputField>
         {form.installment_enabled && (
@@ -105,7 +106,7 @@ export default function ContractForm({ contract, onSave, onCancel, existingStudi
                     return { date: d.toISOString().slice(0, 10), amount: i === n - 1 ? totalCost - amt * (n - 1) : amt, label: `${i + 1}차`, paid: false };
                   });
                   up("installment_schedule", sched);
-                }} style={{ flex: 1, padding: "8px 4px", borderRadius: 6, border: "1px solid #2E3440", background: "#0D1017", color: "#6BA3FF", fontSize: 11, cursor: "pointer" }}>{l}</button>
+                }} style={{ flex: 1, padding: "8px 4px", borderRadius: 6, border: "1px solid #2A2D38", background: "#0A0C10", color: "#5B8DEF", fontSize: 11, cursor: "pointer" }}>{l}</button>
               ))}
             </div>
           </InputField>
@@ -121,19 +122,19 @@ export default function ContractForm({ contract, onSave, onCancel, existingStudi
           </div>
           {form.installment_schedule.map((item, idx) => (
             <div key={idx} style={{ display: "grid", gridTemplateColumns: "60px 1fr 1fr 40px", gap: 8, marginBottom: 6, alignItems: "center" }}>
-              <span style={{ fontSize: 13, color: "#8892A0", padding: "0 4px" }}>{item.label}</span>
+              <span style={{ fontSize: 13, color: "#9BA1AE", padding: "0 4px" }}>{item.label}</span>
               <input style={{ ...inputStyle, padding: "8px 10px", fontSize: 13 }} type="date" value={item.date} onChange={(e) => { const s = [...form.installment_schedule]; s[idx] = { ...s[idx], date: e.target.value }; up("installment_schedule", s); }} />
               <input style={{ ...inputStyle, padding: "8px 10px", fontSize: 13 }} type="number" value={item.amount} onChange={(e) => { const s = [...form.installment_schedule]; s[idx] = { ...s[idx], amount: Number(e.target.value) }; up("installment_schedule", s); }} />
-              <button onClick={() => { const s = form.installment_schedule.filter((_, i) => i !== idx); up("installment_schedule", s); }} style={{ background: "none", border: "none", color: "#FF6B6B", fontSize: 16, cursor: "pointer", padding: 0 }}>×</button>
+              <button onClick={() => { const s = form.installment_schedule.filter((_, i) => i !== idx); up("installment_schedule", s); }} style={{ background: "none", border: "none", color: "#F87171", fontSize: 16, cursor: "pointer", padding: 0 }}>×</button>
             </div>
           ))}
-          <button onClick={() => up("installment_schedule", [...form.installment_schedule, { date: "", amount: 0, label: `${form.installment_schedule.length + 1}차`, paid: false }])} style={{ padding: "6px 14px", borderRadius: 6, border: "1px dashed #2E3440", background: "transparent", color: "#6BA3FF", fontSize: 12, cursor: "pointer", width: "100%", marginTop: 4 }}>+ 회차 추가</button>
+          <button onClick={() => up("installment_schedule", [...form.installment_schedule, { date: "", amount: 0, label: `${form.installment_schedule.length + 1}차`, paid: false }])} style={{ padding: "6px 14px", borderRadius: 6, border: "1px dashed #2A2D38", background: "transparent", color: "#5B8DEF", fontSize: 12, cursor: "pointer", width: "100%", marginTop: 4 }}>+ 회차 추가</button>
         </div>
       )}
 
       {/* 담당자 정보 */}
-      <div style={{ padding: "14px 0 6px", borderTop: "1px solid #1A1F2B", marginTop: 8 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: "#6BA3FF", letterSpacing: "1px", textTransform: "uppercase", marginBottom: 12 }}>👤 담당자 정보</div>
+      <div style={{ padding: "14px 0 6px", borderTop: "1px solid #1E2029", marginTop: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "#5B8DEF", letterSpacing: "1px", textTransform: "uppercase", marginBottom: 12 }}>👤 담당자 정보</div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <InputField label="담당자 이름"><input style={inputStyle} value={form.owner_name} onChange={(e) => up("owner_name", e.target.value)} placeholder="예: 홍길동" /></InputField>
@@ -143,11 +144,11 @@ export default function ContractForm({ contract, onSave, onCancel, existingStudi
       <InputField label="메모"><textarea style={{ ...inputStyle, minHeight: 80, resize: "vertical" }} value={form.notes} onChange={(e) => up("notes", e.target.value)} placeholder="계약 관련 참고사항..." /></InputField>
 
       <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 24 }}>
-        <button onClick={onCancel} style={{ padding: "10px 24px", borderRadius: 10, border: "1px solid #2E3440", background: "transparent", color: "#8892A0", fontSize: 14, cursor: "pointer" }}>취소</button>
+        <button onClick={onCancel} style={{ padding: "10px 24px", borderRadius: 10, border: "1px solid #2A2D38", background: "transparent", color: "#9BA1AE", fontSize: 14, cursor: "pointer" }}>취소</button>
         <button onClick={() => {
           if (!form.vendor.trim() || !form.name.trim() || !form.end_date) return;
           onSave(form);
-        }} disabled={!form.vendor.trim() || !form.name.trim() || !form.end_date} style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: (!form.vendor.trim() || !form.name.trim() || !form.end_date) ? "#2E3440" : "linear-gradient(135deg, #4A6FA5, #3A5A8A)", color: (!form.vendor.trim() || !form.name.trim() || !form.end_date) ? "#555" : "#E8ECF2", fontSize: 14, fontWeight: 600, cursor: (!form.vendor.trim() || !form.name.trim() || !form.end_date) ? "default" : "pointer" }}>{contract ? "수정" : "등록"}</button>
+        }} disabled={!form.vendor.trim() || !form.name.trim() || !form.end_date} style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: (!form.vendor.trim() || !form.name.trim() || !form.end_date) ? "#2A2D38" : "#5B8DEF", color: (!form.vendor.trim() || !form.name.trim() || !form.end_date) ? "#555" : "#EDEEF0", fontSize: 14, fontWeight: 600, cursor: (!form.vendor.trim() || !form.name.trim() || !form.end_date) ? "default" : "pointer" }}>{contract ? "수정" : "등록"}</button>
       </div>
     </div>
   );
