@@ -14,7 +14,7 @@ export default function DeleteConfirmModal({ isOpen, contract, onConfirm, onClos
       justifyContent: "center", zIndex: 1100, padding: 20,
     }}>
       <div onClick={(e) => e.stopPropagation()} style={{
-        background: "#151720", border: "1px solid #8B3A3A", borderRadius: 16,
+        background: "#151720", border: "1px solid #8B3A3A", borderRadius: 18,
         width: "100%", maxWidth: 440, boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
         padding: 28,
       }}>
@@ -48,7 +48,7 @@ export default function DeleteConfirmModal({ isOpen, contract, onConfirm, onClos
             style={{
               padding: "10px 24px", borderRadius: 10, border: "none",
               background: typed === "삭제" ? "#8B3A3A" : "#2B3044",
-              color: typed === "삭제" ? "#F0F1F4" : "#555",
+              color: typed === "삭제" ? "#F0F1F4" : "#444A58",
               fontSize: 14, fontWeight: 600,
               cursor: typed === "삭제" ? "pointer" : "default",
               transition: "all 0.2s",

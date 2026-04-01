@@ -3,16 +3,17 @@ import { createClient } from '@supabase/supabase-js';
 export async function POST(request) {
   try {
     const authHeader = request.headers.get("authorization");
-    if (authHeader) {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        { global: { headers: { Authorization: authHeader } } }
-      );
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return Response.json({ error: "인증이 필요합니다." }, { status: 401 });
-      }
+    if (!authHeader) {
+      return Response.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return Response.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
     const { webhookUrl, message } = await request.json();

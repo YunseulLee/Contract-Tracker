@@ -84,28 +84,28 @@ export default function CSVImportModal({ isOpen, onClose, onImport }) {
 
   return (
     <Modal isOpen={isOpen} onClose={() => { setCsvText(""); setPreview([]); onClose(); }} title="📂 CSV Import" width={700}>
-      <p style={{ fontSize: 13, color: "#8892A0", marginTop: 0, lineHeight: 1.6, marginBottom: 16 }}>
+      <p style={{ fontSize: 13, color: "#949BAD", marginTop: 0, lineHeight: 1.6, marginBottom: 16 }}>
         CSV 파일을 업로드하거나 텍스트를 붙여넣으세요.<br />
-        <span style={{ color: "#6BA3FF", fontSize: 12 }}>헤더: vendor, name, type, start_date, end_date, renewal_date, auto_renew, notice_days, annual_cost, currency, studio, owner_name, owner_email, wiki_url, notes</span><br />
-        <span style={{ color: "#6BA3FF", fontSize: 12 }}>한글 헤더도 인식: 벤더, 계약명, 유형, 시작일, 종료일, 갱신일, 자동갱신, 비용, 통화, 스튜디오, 담당자, 메모</span>
+        <span style={{ color: "#4A9FD8", fontSize: 12 }}>헤더: vendor, name, type, start_date, end_date, renewal_date, auto_renew, notice_days, annual_cost, currency, studio, owner_name, owner_email, wiki_url, notes</span><br />
+        <span style={{ color: "#4A9FD8", fontSize: 12 }}>한글 헤더도 인식: 벤더, 계약명, 유형, 시작일, 종료일, 갱신일, 자동갱신, 비용, 통화, 스튜디오, 담당자, 메모</span>
       </p>
       <input ref={fileRef} type="file" accept=".csv,.txt" onChange={handleFile} style={{ display: "none" }} />
-      <button onClick={() => fileRef.current?.click()} style={{ padding: "12px 20px", borderRadius: 10, border: "1px dashed #4A6FA5", background: "#0D1017", color: "#6BA3FF", fontSize: 13, cursor: "pointer", width: "100%", marginBottom: 12 }}>📂 CSV 파일 선택</button>
+      <button onClick={() => fileRef.current?.click()} style={{ padding: "12px 20px", borderRadius: 10, border: "1px dashed #4A9FD8", background: "#0D0E14", color: "#4A9FD8", fontSize: 13, cursor: "pointer", width: "100%", marginBottom: 12 }}>📂 CSV 파일 선택</button>
       <textarea style={{ ...inputStyle, minHeight: 100, resize: "vertical", fontSize: 12, marginBottom: 12 }} value={csvText} onChange={(e) => { setCsvText(e.target.value); parsePreview(e.target.value); }} placeholder="CSV 텍스트를 여기에 붙여넣기..." />
 
       {preview.length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#66FFCC", marginBottom: 8 }}>✓ {preview.length}건 인식됨 — 미리보기:</div>
-          <div style={{ maxHeight: 200, overflow: "auto", borderRadius: 8, border: "1px solid #2E3440" }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#2DD4A0", marginBottom: 8 }}>✓ {preview.length}건 인식됨 — 미리보기:</div>
+          <div style={{ maxHeight: 200, overflow: "auto", borderRadius: 8, border: "1px solid #2B3044" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-              <thead><tr style={{ background: "#111620" }}>{["벤더", "계약명", "종료일", "비용", "스튜디오"].map((h, i) => <th key={i} style={{ padding: "8px 12px", textAlign: "left", color: "#6B7280", borderBottom: "1px solid #1A1F2B" }}>{h}</th>)}</tr></thead>
+              <thead><tr style={{ background: "#1C1F2A" }}>{["벤더", "계약명", "종료일", "비용", "스튜디오"].map((h, i) => <th key={i} style={{ padding: "8px 12px", textAlign: "left", color: "#6B7280", borderBottom: "1px solid #1F2233" }}>{h}</th>)}</tr></thead>
               <tbody>{preview.slice(0, 10).map((r, i) => (
-                <tr key={i} style={{ borderBottom: "1px solid #1A1F2B" }}>
+                <tr key={i} style={{ borderBottom: "1px solid #1F2233" }}>
                   <td style={{ padding: "8px 12px", fontWeight: 600 }}>{r.vendor}</td>
-                  <td style={{ padding: "8px 12px", color: "#8892A0" }}>{r.name}</td>
-                  <td style={{ padding: "8px 12px", color: "#8892A0" }}>{r.end_date}</td>
+                  <td style={{ padding: "8px 12px", color: "#949BAD" }}>{r.name}</td>
+                  <td style={{ padding: "8px 12px", color: "#949BAD" }}>{r.end_date}</td>
                   <td style={{ padding: "8px 12px" }}>{formatCurrency(r.annual_cost, r.currency)}</td>
-                  <td style={{ padding: "8px 12px", color: "#8892A0" }}>{r.studio}</td>
+                  <td style={{ padding: "8px 12px", color: "#949BAD" }}>{r.studio}</td>
                 </tr>
               ))}</tbody>
             </table>
@@ -115,8 +115,8 @@ export default function CSVImportModal({ isOpen, onClose, onImport }) {
       )}
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-        <button onClick={() => { setCsvText(""); setPreview([]); onClose(); }} style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid #2E3440", background: "transparent", color: "#8892A0", cursor: "pointer", fontSize: 13 }}>취소</button>
-        <button onClick={handleImport} disabled={preview.length === 0} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: preview.length > 0 ? "linear-gradient(135deg, #4A6FA5, #3A5A8A)" : "#2E3440", color: preview.length > 0 ? "#E8ECF2" : "#555", fontWeight: 600, cursor: preview.length > 0 ? "pointer" : "default", fontSize: 13 }}>
+        <button onClick={() => { setCsvText(""); setPreview([]); onClose(); }} style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid #2B3044", background: "transparent", color: "#949BAD", cursor: "pointer", fontSize: 13 }}>취소</button>
+        <button onClick={handleImport} disabled={preview.length === 0} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: preview.length > 0 ? "linear-gradient(135deg, #4A9FD8, #3D8EC6)" : "#2B3044", color: preview.length > 0 ? "#F0F1F4" : "#444A58", fontWeight: 600, cursor: preview.length > 0 ? "pointer" : "default", fontSize: 13 }}>
           {preview.length > 0 ? `${preview.length}건 Import` : "Import"}
         </button>
       </div>

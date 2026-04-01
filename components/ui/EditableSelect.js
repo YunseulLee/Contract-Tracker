@@ -13,7 +13,7 @@ export default function EditableSelect({ value, onChange, options, placeholder }
         placeholder={placeholder || "직접 입력"} />
       <button onClick={() => { setCustom(false); onChange(options[0]); }}
         style={{
-          padding: "8px 12px", borderRadius: 8, border: "1px solid #2E3440",
+          padding: "8px 12px", borderRadius: 8, border: "1px solid #2B3044",
           background: "transparent", color: "#6B7280", fontSize: 11,
           cursor: "pointer", whiteSpace: "nowrap",
         }}>
@@ -28,8 +28,8 @@ export default function EditableSelect({ value, onChange, options, placeholder }
       </select>
       <button onClick={() => { setCustom(true); onChange(""); }}
         style={{
-          padding: "8px 12px", borderRadius: 8, border: "1px solid #2E3440",
-          background: "transparent", color: "#6BA3FF", fontSize: 11,
+          padding: "8px 12px", borderRadius: 8, border: "1px solid #2B3044",
+          background: "transparent", color: "#4A9FD8", fontSize: 11,
           cursor: "pointer", whiteSpace: "nowrap",
         }}>
         + 추가

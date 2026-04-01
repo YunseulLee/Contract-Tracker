@@ -27,7 +27,6 @@ export default function ContractTracker() {
   const [showCSV, setShowCSV] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("active");
   const [sortBy, setSortBy] = useState("urgency");
   const [expiredSortBy, setExpiredSortBy] = useState("end_date_desc");
   const [expiredSearch, setExpiredSearch] = useState("");
@@ -209,7 +208,7 @@ export default function ContractTracker() {
       return 0;
     });
     return list;
-  }, [contracts, searchTerm, filterType, filterStatus, sortBy]);
+  }, [contracts, searchTerm, filterType, sortBy]);
 
   const stats = useMemo(() => {
     const a = contracts.filter((c) => c.status === "active");
@@ -223,7 +222,7 @@ export default function ContractTracker() {
   const expiredContracts = useMemo(() => contracts.filter((c) => c.status === "terminated" || (c.status === "active" && getDaysUntil(c.end_date) < 0)), [contracts]);
 
   const recentlyExpired = useMemo(() => contracts.filter((c) => {
-    if (c.status === "terminated") return true;
+    if (c.status === "terminated") { const d = getDaysUntil(c.end_date); return d < 0 && d >= -15; }
     if (c.status === "active") { const d = getDaysUntil(c.end_date); return d < 0 && d >= -15; }
     return false;
   }), [contracts]);

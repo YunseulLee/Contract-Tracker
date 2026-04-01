@@ -2,9 +2,9 @@
 import { useEffect } from "react";
 
 const colors = {
-  success: { bg: "#1B2D2A", border: "#3A8B7A", text: "#66FFCC" },
-  error: { bg: "#2D1B1B", border: "#8B3A3A", text: "#FF6B6B" },
-  info: { bg: "#1B2333", border: "#2E4A7A", text: "#6BA3FF" },
+  success: { bg: "#1B2D2A", border: "#3A8B7A", text: "#2DD4A0" },
+  error: { bg: "#2D1B1B", border: "#8B3A3A", text: "#F06B6B" },
+  info: { bg: "#1B2333", border: "#2B3044", text: "#4A9FD8" },
 };
 
 export default function Toast({ message, type, onClose }) {

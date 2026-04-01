@@ -48,7 +48,7 @@ export default function AuthPage() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: '#0A0C10',
+      background: '#0D0E14',
       fontFamily: "'Inter', 'Noto Sans KR', sans-serif",
     }}>
       <div style={{
@@ -64,22 +64,7 @@ export default function AuthPage() {
           alignItems: 'center',
           marginBottom: 40,
         }}>
-          <div style={{
-            width: 56,
-            height: 56,
-            borderRadius: 14,
-            background: 'linear-gradient(135deg, #5B8DEF, #4A7DDF)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 24,
-            fontWeight: 700,
-            color: '#fff',
-            marginBottom: 16,
-            boxShadow: '0 4px 24px rgba(91, 141, 239, 0.3)',
-          }}>
-            C
-          </div>
+          <img src="/krafton-logo.png" alt="KRAFTON" style={{ width: 28, height: 28, objectFit: 'contain' }} />
           <h1 style={{
             fontSize: 20,
             fontWeight: 700,
@@ -111,14 +96,14 @@ export default function AuthPage() {
                 padding: '12px 16px',
                 fontSize: 14,
                 color: '#EDEEF0',
-                background: '#0A0C10',
+                background: '#0D0E14',
                 border: '1px solid #2A2D38',
                 borderRadius: 8,
                 outline: 'none',
                 fontFamily: 'inherit',
                 transition: 'border-color 0.2s',
               }}
-              onFocus={(e) => e.target.style.borderColor = '#5B8DEF'}
+              onFocus={(e) => e.target.style.borderColor = '#4A9FD8'}
               onBlur={(e) => e.target.style.borderColor = '#2A2D38'}
             />
           </div>
@@ -145,8 +130,8 @@ export default function AuthPage() {
               fontWeight: 600,
               color: '#EDEEF0',
               background: loading || !password.trim()
-                ? 'linear-gradient(135deg, #5B8DEF88, #4A7DDF88)'
-                : 'linear-gradient(135deg, #5B8DEF, #4A7DDF)',
+                ? 'linear-gradient(135deg, #4A9FD888, #3D8EC688)'
+                : 'linear-gradient(135deg, #4A9FD8, #3D8EC6)',
               border: 'none',
               borderRadius: 8,
               cursor: loading || !password.trim() ? 'not-allowed' : 'pointer',
