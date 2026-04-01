@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const ALLOWED_IPS = ['103.114.126.33', '103.114.126.34'];
+const ALLOWED_IPS = ['103.114.126.33', '103.114.126.34', '127.0.0.1', '::1'];
 
 export function middleware(request) {
   // Skip auth page and API routes

@@ -10,9 +10,10 @@ export async function POST(request) {
 
   if (password === correctPassword) {
     const response = NextResponse.json({ success: true });
+    const isProduction = process.env.NODE_ENV === 'production';
     response.cookies.set('ct_auth', 'authenticated', {
       httpOnly: true,
-      secure: true,
+      secure: isProduction,
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 30, // 30 days
       path: '/',
