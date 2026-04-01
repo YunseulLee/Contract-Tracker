@@ -2,46 +2,45 @@
 
 /* ─── Reset ─── */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Inter', 'Noto Sans KR', sans-serif; background: #0A0C10; color: #EDEEF0; }
+body { font-family: 'Inter', 'Noto Sans KR', -apple-system, sans-serif; background: #0D0E14; color: #F0F1F4; }
 
 /* ─── Animations ─── */
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes slideIn { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
-@keyframes modalIn { from { opacity: 0; transform: scale(0.96) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
 /* ─── Form Elements ─── */
-input:focus, select:focus, textarea:focus { border-color: var(--accent-primary) !important; outline: none; box-shadow: 0 0 0 3px var(--accent-primary-muted); }
+input:focus, select:focus, textarea:focus { border-color: #4A9FD8 !important; outline: none; box-shadow: 0 0 0 3px #4A9FD815; }
 
 /* ─── Scrollbar ─── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: #2B3044; border-radius: 3px; }
 
 /* ─── Color Variables ─── */
 :root {
-  --bg-base: #0A0C10;
-  --bg-surface: #12141A;
-  --bg-elevated: #1A1D25;
-  --bg-overlay: #22252E;
-  --border-subtle: #1E2029;
-  --border-default: #2A2D38;
-  --border-strong: #3A3E4A;
-  --text-primary: #EDEEF0;
-  --text-secondary: #9BA1AE;
-  --text-tertiary: #6B7280;
-  --text-disabled: #464B55;
-  --accent-primary: #5B8DEF;
-  --accent-primary-hover: #4A7DDF;
-  --accent-primary-muted: #5B8DEF18;
-  --accent-success: #34D399;
-  --accent-success-muted: #34D39920;
-  --accent-danger: #F87171;
-  --accent-danger-muted: #F8717118;
-  --accent-warning: #FBBF24;
-  --accent-warning-muted: #FBBF2418;
-  --accent-orange: #FB923C;
-  --accent-orange-muted: #FB923C18;
+  --bg-base: #0D0E14;
+  --bg-surface: #151720;
+  --bg-elevated: #1C1F2A;
+  --bg-overlay: #242836;
+  --border-subtle: #1F2233;
+  --border-default: #2B3044;
+  --border-strong: #3C4258;
+  --text-primary: #F0F1F4;
+  --text-secondary: #949BAD;
+  --text-tertiary: #636B7E;
+  --text-disabled: #444A58;
+  --accent-blue: #4A9FD8;
+  --accent-blue-light: #4A9FD8;
+  --accent-green: #2DD4A0;
+  --accent-green-dark: #10B981;
+  --accent-red: #F06B6B;
+  --accent-red-dark: #EF4444;
+  --accent-yellow: #F5B731;
+  --accent-orange: #F08C3A;
 }
 
 /* ─── Layout Utilities ─── */
@@ -59,7 +58,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent-primary) 
 .card {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 20px;
 }
 
@@ -75,8 +74,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent-primary) 
 
 .btn-primary {
   border: none;
-  background: linear-gradient(135deg, #5B8DEF, #4A7DDF);
-  color: #EDEEF0;
+  background: linear-gradient(135deg, #4A9FD8, #3D8EC6);
+  color: #F0F1F4;
   font-weight: 600;
 }
 
@@ -87,9 +86,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent-primary) 
 }
 
 .btn-danger {
-  border: 1px solid #F8717130;
+  border: 1px solid #F06B6B30;
   background: transparent;
-  color: var(--accent-danger);
+  color: var(--accent-red);
 }
 
 /* ─── Table ─── */
@@ -112,8 +111,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent-primary) 
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  font-weight: 600;
-  border-bottom: 1px solid var(--border-subtle);
+  font-weight: 700;
+  border-bottom: 2px solid var(--border-subtle);
   background: var(--bg-elevated);
 }
 
@@ -144,7 +143,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent-primary) 
 .section-title {
   font-size: 11px;
   font-weight: 600;
-  color: var(--accent-primary);
+  color: var(--accent-blue);
   letter-spacing: 1px;
   text-transform: uppercase;
   margin-bottom: 12px;
@@ -160,5 +159,5 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent-primary) 
 
 /* ─── View Animation ─── */
 .view-enter {
-  animation: fadeIn 0.3s ease;
+  animation: fadeIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }

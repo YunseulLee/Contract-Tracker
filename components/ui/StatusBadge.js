@@ -21,7 +21,7 @@ export default function StatusBadge({ urgency, autoRenew }) {
       {autoRenew && (
         <span style={{
           padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600,
-          background: "#5B8DEF15", color: "#5B8DEF", border: "1px solid #5B8DEF30",
+          background: "#4A9FD815", color: "#4A9FD8", border: "1px solid #4A9FD830",
         }}>
           ↻ 자동갱신
         </span>
