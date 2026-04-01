@@ -379,7 +379,7 @@ export default function ContractTracker() {
               </div>
               <div style={{ borderRadius: 12, border: "1px solid #1E2029", overflow: "hidden" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead><tr style={{ background: "#1A1D25" }}>{["상태", "벤더", "계약명", "유형", "담당자", "종료일", "D-Day", ""].map((h, i) => <th key={i} style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.8px", fontWeight: 600, borderBottom: "1px solid #1E2029" }}>{h}</th>)}</tr></thead>
+                  <thead><tr style={{ background: "#1A1D25" }}>{["상태", "벤더", "공급사", "계약명", "유형", "담당자", "종료일", "D-Day", ""].map((h, i) => <th key={i} style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.8px", fontWeight: 600, borderBottom: "1px solid #1E2029" }}>{h}</th>)}</tr></thead>
                   <tbody>{filtered.map((c) => {
                     const urg = getUrgencyLevel(c);
                     const dl = Math.min(getDaysUntil(c.end_date), getDaysUntil(c.renewal_date));
@@ -389,6 +389,7 @@ export default function ContractTracker() {
                       <tr key={c.id} onClick={() => setShowDetail(c)} style={{ borderBottom: "1px solid #1E2029", cursor: "pointer", opacity: isTerm ? 0.5 : 1 }}>
                         <td style={{ padding: "12px 16px" }}>{isTerm ? <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: "#1A1D25", color: "#6B7280", border: "1px solid #2A2D38" }}>종료</span> : <StatusBadge urgency={urg} autoRenew={c.auto_renew} />}</td>
                         <td style={{ padding: "12px 16px", fontWeight: 600, color: "#EDEEF0" }}>{c.vendor}</td>
+                        <td style={{ padding: "12px 16px", fontSize: 12, color: "#9BA1AE" }}>{c.supplier || "—"}</td>
                         <td style={{ padding: "12px 16px", color: "#9BA1AE" }}>{c.name}</td>
                         <td style={{ padding: "12px 16px" }}><span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, background: "#1A1D25", color: "#9BA1AE" }}>{c.type}</span></td>
                         <td style={{ padding: "12px 16px", fontSize: 12, color: "#9BA1AE" }}>{c.owner_name || "—"}</td>
@@ -437,7 +438,7 @@ export default function ContractTracker() {
                 <>
                 <div style={{ borderRadius: 12, border: "1px solid #1E2029", overflow: "hidden" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead><tr style={{ background: "#1A1D25" }}>{["상태", "벤더", "계약명", "유형", "담당자", "종료일", "경과"].map((h, i) => <th key={i} style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.8px", fontWeight: 600, borderBottom: "1px solid #1E2029" }}>{h}</th>)}</tr></thead>
+                    <thead><tr style={{ background: "#1A1D25" }}>{["상태", "벤더", "공급사", "계약명", "유형", "담당자", "종료일", "경과"].map((h, i) => <th key={i} style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.8px", fontWeight: 600, borderBottom: "1px solid #1E2029" }}>{h}</th>)}</tr></thead>
                     <tbody>{pagedExpired.map((c) => {
                       const dl = getDaysUntil(c.end_date);
                       const isTerm = c.status === "terminated";
@@ -448,6 +449,7 @@ export default function ContractTracker() {
                         <tr key={c.id} onClick={() => setShowDetail(c)} style={{ borderBottom: "1px solid #1E2029", cursor: "pointer" }}>
                           <td style={{ padding: "12px 16px" }}><span style={{ padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, background: badgeColor.bg, color: badgeColor.color, border: `1px solid ${badgeColor.border}` }}>{badgeLabel}</span></td>
                           <td style={{ padding: "12px 16px", fontWeight: 600, color: "#EDEEF0" }}>{c.vendor}</td>
+                          <td style={{ padding: "12px 16px", fontSize: 12, color: "#9BA1AE" }}>{c.supplier || "—"}</td>
                           <td style={{ padding: "12px 16px", color: "#9BA1AE" }}>{c.name}</td>
                           <td style={{ padding: "12px 16px" }}><span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, background: "#1A1D25", color: "#9BA1AE" }}>{c.type}</span></td>
                           <td style={{ padding: "12px 16px", fontSize: 12, color: "#9BA1AE" }}>{c.owner_name || "—"}</td>
