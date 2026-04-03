@@ -177,54 +177,77 @@ export async function GET(request) {
     const contracts = [];
     const skippedPages = [];
     const seenUrls = new Set();
-    // Search all pages and parse from excerpt
-    for (const [ancestorId, studio] of Object.entries(STUDIO_ANCESTORS)) {
-      let cql = `type="page" AND ancestor=${ancestorId} AND (label="procurement_db" OR title~"계약" OR title~"Renewal" OR title~"License" OR title~"maintenance" OR title~"연간")`;
-      if (mode === 'incremental') {
-        cql += ` AND lastModified >= "now-1d"`;
+    // Build CQL queries: label-based (supports lastModified) + title-based (no lastModified)
+    function buildCqlList(ancestorId) {
+      const base = `type="page" AND ancestor=${ancestorId}`;
+      const queries = [];
+      // Query 1: label-based (works with lastModified)
+      let labelCql = `${base} AND label="procurement_db"`;
+      if (mode === 'incremental') labelCql += ` AND lastModified >= "now-1d"`;
+      queries.push(labelCql);
+      // Query 2: title keyword search (title~ incompatible with lastModified)
+      if (mode === 'full') {
+        queries.push(`${base} AND title~"계약"`);
+        queries.push(`${base} AND title~"Renewal"`);
+        queries.push(`${base} AND title~"License"`);
+        queries.push(`${base} AND title~"maintenance"`);
+        queries.push(`${base} AND title~"연간"`);
       }
+      return queries;
+    }
 
+    async function searchAllPages(cql) {
       let start = 0;
       let hasMore = true;
-
+      const results = [];
       while (hasMore) {
         const data = await confluenceSearch(cql, 50, start);
-        const results = data.results || [];
+        const batch = data.results || [];
+        results.push(...batch);
+        start += batch.length;
+        hasMore = batch.length > 0 && (!!data._links?.next || batch.length >= 50);
+      }
+      return results;
+    }
 
+    function processResult(result, studio) {
+      const pageId = result.content?.id || result.id;
+      if (!pageId) return;
+      const wikiUrl = `https://krafton.atlassian.net/wiki/spaces/ITPurchase/pages/${pageId}`;
+      if (seenUrls.has(wikiUrl)) return;
+      seenUrls.add(wikiUrl);
+
+      const parsed = parseExcerpt(result.excerpt || '');
+      const period = parsePeriod(parsed.period);
+
+      if (period.end_date) {
+        const cost = parseCost(parsed.cost);
+        contracts.push({
+          vendor: parsed.vendor || result.title,
+          name: parsed.item || result.title,
+          type: parsed.type || '',
+          start_date: period.start_date,
+          end_date: period.end_date,
+          annual_cost: cost.amount,
+          currency: cost.currency,
+          studio,
+          owner_name: parsed.owner || '',
+          supplier: parsed.supplier || parsed.vendor || '',
+          wiki_url: wikiUrl,
+          status: 'active',
+        });
+      } else {
+        skippedPages.push({ pageId, title: result.title, wiki_url: wikiUrl, reason: 'no end_date' });
+      }
+    }
+
+    for (const [ancestorId, studio] of Object.entries(STUDIO_ANCESTORS)) {
+      const cqlList = buildCqlList(ancestorId);
+      for (const cql of cqlList) {
+        const results = await searchAllPages(cql);
         for (const result of results) {
-          const pageId = result.content?.id || result.id;
-          if (!pageId) continue;
-
-          const wikiUrl = `https://krafton.atlassian.net/wiki/spaces/ITPurchase/pages/${pageId}`;
-          if (seenUrls.has(wikiUrl)) continue;
-          seenUrls.add(wikiUrl);
-
-          const parsed = parseExcerpt(result.excerpt || '');
-          const period = parsePeriod(parsed.period);
-
-          if (period.end_date) {
-            const cost = parseCost(parsed.cost);
-            contracts.push({
-              vendor: parsed.vendor || result.title,
-              name: parsed.item || result.title,
-              type: parsed.type || '',
-              start_date: period.start_date,
-              end_date: period.end_date,
-              annual_cost: cost.amount,
-              currency: cost.currency,
-              studio,
-              owner_name: parsed.owner || '',
-              supplier: parsed.supplier || parsed.vendor || '',
-              wiki_url: wikiUrl,
-              status: 'active',
-            });
-          } else {
-            skippedPages.push({ pageId, title: result.title, wiki_url: wikiUrl, reason: 'no end_date' });
-          }
+          processResult(result, studio);
         }
-
-        start += results.length;
-        hasMore = results.length > 0 && (!!data._links?.next || results.length >= 50);
       }
     }
 
