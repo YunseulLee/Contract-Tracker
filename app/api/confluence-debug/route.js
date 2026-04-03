@@ -35,27 +35,21 @@ export async function GET(request) {
   let searchResult = null;
   if (searchAncestor) {
     const cql = `type="page" AND ancestor=${searchAncestor}`;
-    // Paginate through all results
-    const allIds = [];
-    let sStart = 0;
-    let sHasMore = true;
-    while (sHasMore) {
-      const searchUrl = new URL(`${CONFLUENCE_BASE}/wiki/rest/api/content/search`);
-      searchUrl.searchParams.set('cql', cql);
-      searchUrl.searchParams.set('limit', '50');
-      searchUrl.searchParams.set('start', String(sStart));
-      const sRes = await fetch(searchUrl.toString(), {
-        headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
-      });
-      const sData = await sRes.json();
-      const ids = (sData.results || []).map(r => r.content?.id || r.id);
-      allIds.push(...ids);
-      sStart += ids.length;
-      sHasMore = (sData.totalSize || 0) > sStart && ids.length > 0;
-    }
+    // Single page to check response structure
+    const searchUrl = new URL(`${CONFLUENCE_BASE}/wiki/rest/api/content/search`);
+    searchUrl.searchParams.set('cql', cql);
+    searchUrl.searchParams.set('limit', '5');
+    const sRes = await fetch(searchUrl.toString(), {
+      headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
+    });
+    const sData = await sRes.json();
     searchResult = {
-      total: allIds.length,
-      includes_page: allIds.includes(pageId),
+      totalSize: sData.totalSize,
+      size: sData.size,
+      start: sData.start,
+      limit: sData.limit,
+      has_links_next: !!sData._links?.next,
+      response_keys: Object.keys(sData),
     };
   }
 
