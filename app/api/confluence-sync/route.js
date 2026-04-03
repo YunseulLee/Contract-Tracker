@@ -232,7 +232,7 @@ export async function GET(request) {
     // Search per ancestor with label (fast, works with incremental)
     for (const [ancestorId, studio] of Object.entries(STUDIO_ANCESTORS)) {
       let cql = `type="page" AND ancestor=${ancestorId} AND label="procurement_db"`;
-      if (mode === 'incremental') cql += ` AND lastModified >= "now-1d"`;
+      if (mode === 'incremental') cql += ` AND lastmodified >= now("-1d")`;
       const results = await searchAllPages(cql);
       for (const result of results) processResult(result, studio);
     }
