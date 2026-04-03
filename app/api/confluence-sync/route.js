@@ -252,12 +252,20 @@ export async function GET(request) {
       }
     }
 
+    // 병렬 처리 헬퍼 (동시 요청 수 제한)
+    const CONCURRENCY = 10;
+    async function processInParallel(items) {
+      for (let i = 0; i < items.length; i += CONCURRENCY) {
+        await Promise.all(items.slice(i, i + CONCURRENCY).map(({ result, studio }) => processResult(result, studio)));
+      }
+    }
+
     // Search per ancestor with label (fast, works with incremental)
     for (const [ancestorId, studio] of Object.entries(STUDIO_ANCESTORS)) {
       let cql = `type="page" AND ancestor=${ancestorId} AND label="procurement_db"`;
       if (mode === 'incremental') cql += ` AND lastmodified >= now("-1d")`;
       const results = await searchAllPages(cql);
-      for (const result of results) await processResult(result, studio);
+      await processInParallel(results.map(result => ({ result, studio })));
     }
 
     // Full sync: also search by title keywords across entire space (single queries, no ancestor loop)
@@ -266,19 +274,18 @@ export async function GET(request) {
       for (const keyword of titleKeywords) {
         const cql = `type="page" AND space="ITPurchase" AND title~"${keyword}"`;
         const results = await searchAllPages(cql);
-        for (const result of results) {
-          // Determine studio from ancestor match
-          let studio = 'KRAFTON HQ'; // default
+        const items = results.map(result => {
+          let studio = 'KRAFTON HQ';
           for (const [ancestorId, studioName] of Object.entries(STUDIO_ANCESTORS)) {
-            // Check via page ancestors if available
             const ancestors = result.content?.ancestors || result.ancestors || [];
             if (ancestors.some(a => a.id === ancestorId)) {
               studio = studioName;
               break;
             }
           }
-          await processResult(result, studio);
-        }
+          return { result, studio };
+        });
+        await processInParallel(items);
       }
     }
 
