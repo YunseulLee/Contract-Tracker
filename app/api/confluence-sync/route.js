@@ -201,15 +201,16 @@ export async function GET(request) {
 
           let parsed;
 
-          // Fetch full page for accurate parsing
-          const page = await confluenceGetPage(pageId);
-          if (page?.body?.view?.value) {
-            parsed = parsePageBody(page.body.view.value);
-          }
+          // Try excerpt parsing first (fast, no extra API call)
+          parsed = parseExcerpt(result.excerpt || '');
 
-          // Fallback to excerpt parsing
-          if (!parsed || Object.keys(parsed).length < 3) {
-            parsed = { ...parsed, ...parseExcerpt(result.excerpt || '') };
+          // If excerpt parsing insufficient, fetch full page body
+          if (!parsed.period || Object.keys(parsed).length < 3) {
+            const page = await confluenceGetPage(pageId);
+            if (page?.body?.view?.value) {
+              const bodyParsed = parsePageBody(page.body.view.value);
+              parsed = { ...parsed, ...bodyParsed };
+            }
           }
 
           const period = parsePeriod(parsed.period);
