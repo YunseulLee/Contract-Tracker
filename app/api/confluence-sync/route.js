@@ -32,6 +32,7 @@ async function confluenceSearch(cql, limit = 50, start = 0) {
   url.searchParams.set('cql', cql);
   url.searchParams.set('limit', String(limit));
   url.searchParams.set('start', String(start));
+  url.searchParams.set('expand', 'body.view');
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
@@ -201,16 +202,16 @@ export async function GET(request) {
 
           let parsed;
 
-          // Try excerpt parsing first (fast, no extra API call)
-          parsed = parseExcerpt(result.excerpt || '');
+          // Parse from full page body (included in search results via expand)
+          const bodyHtml = result.content?.body?.view?.value || result.body?.view?.value;
+          if (bodyHtml) {
+            parsed = parsePageBody(bodyHtml);
+          }
 
-          // If excerpt parsing insufficient, fetch full page body
-          if (!parsed.period || Object.keys(parsed).length < 3) {
-            const page = await confluenceGetPage(pageId);
-            if (page?.body?.view?.value) {
-              const bodyParsed = parsePageBody(page.body.view.value);
-              parsed = { ...parsed, ...bodyParsed };
-            }
+          // Fallback to excerpt parsing
+          if (!parsed || !parsed.period || Object.keys(parsed).length < 3) {
+            const excerptParsed = parseExcerpt(result.excerpt || '');
+            parsed = { ...parsed, ...excerptParsed };
           }
 
           const period = parsePeriod(parsed.period);
