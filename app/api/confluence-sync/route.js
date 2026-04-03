@@ -167,7 +167,7 @@ export async function GET(request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const mode = searchParams.get('mode') || 'incremental'; // full | incremental
+  const mode = searchParams.get('mode') || 'incremental'; // full | incremental | ancestors
 
   try {
     if (!CONFLUENCE_EMAIL || !CONFLUENCE_TOKEN) {
@@ -260,7 +260,8 @@ export async function GET(request) {
       }
     }
 
-    // Search per ancestor with label (fast, works with incremental)
+    // Search per ancestor with label
+    // incremental: 최근 1일 수정분만 / ancestors: 전체 (시간제한 없음) / full: 전체 + 키워드
     for (const [ancestorId, studio] of Object.entries(STUDIO_ANCESTORS)) {
       let cql = `type="page" AND ancestor=${ancestorId} AND label="procurement_db"`;
       if (mode === 'incremental') cql += ` AND lastmodified >= now("-1d")`;
