@@ -26,12 +26,13 @@ const STUDIO_ANCESTORS = {
   '952283440': 'OliveTree Games',
 };
 
-async function confluenceSearch(cql, limit = 50, start = 0) {
+async function confluenceSearch(cql, limit = 50, start = 0, expandBody = false) {
   const auth = Buffer.from(`${CONFLUENCE_EMAIL}:${CONFLUENCE_TOKEN}`).toString('base64');
   const url = new URL(`${CONFLUENCE_BASE}/wiki/rest/api/content/search`);
   url.searchParams.set('cql', cql);
   url.searchParams.set('limit', String(limit));
   url.searchParams.set('start', String(start));
+  if (expandBody) url.searchParams.set('expand', 'body.view');
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
@@ -184,12 +185,12 @@ export async function GET(request) {
       return defaultStudio;
     }
 
-    async function searchAllPages(cql) {
+    async function searchAllPages(cql, expandBody = false) {
       let start = 0;
       let hasMore = true;
       const results = [];
       while (hasMore) {
-        const data = await confluenceSearch(cql, 50, start);
+        const data = await confluenceSearch(cql, 50, start, expandBody);
         const batch = data.results || [];
         results.push(...batch);
         start += batch.length;
@@ -210,12 +211,13 @@ export async function GET(request) {
 
       // Fallback: excerpt에서 기간 파싱 실패 시 page body에서 재시도
       if (!period.end_date) {
-        const page = await confluenceGetPage(pageId);
-        if (page?.body?.view?.value) {
-          const bodyParsed = parsePageBody(page.body.view.value);
+        // 검색 결과에 body가 이미 포함된 경우 재사용, 아니면 개별 호출
+        const bodyHtml = result.body?.view?.value || result.content?.body?.view?.value;
+        const html = bodyHtml || (await confluenceGetPage(pageId))?.body?.view?.value;
+        if (html) {
+          const bodyParsed = parsePageBody(html);
           const bodyPeriod = parsePeriod(bodyParsed.period);
           if (bodyPeriod.end_date) {
-            // body에서 파싱 성공 시 excerpt 결과와 병합 (body 우선 보완)
             parsed = {
               ...parsed,
               period: bodyParsed.period || parsed.period,
@@ -261,11 +263,12 @@ export async function GET(request) {
     }
 
     // Search per ancestor with label
-    // incremental: 최근 1일 수정분만 / ancestors: 전체 (시간제한 없음) / full: 전체 + 키워드
+    // incremental: 최근 1일 수정분만 / ancestors: 전체 + body 포함 / full: 전체 + 키워드
+    const needBody = mode === 'ancestors' || mode === 'full';
     for (const [ancestorId, studio] of Object.entries(STUDIO_ANCESTORS)) {
       let cql = `type="page" AND ancestor=${ancestorId} AND label="procurement_db"`;
       if (mode === 'incremental') cql += ` AND lastmodified >= now("-1d")`;
-      const results = await searchAllPages(cql);
+      const results = await searchAllPages(cql, needBody);
       await processInParallel(results.map(result => ({ result, studio })));
     }
 
