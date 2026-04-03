@@ -52,7 +52,9 @@ async function confluenceGetPage(pageId) {
 
 function stripHtml(html) {
   return (html || '')
-    .replace(/<time[^>]*datetime="([^"]+)"[^>]*\/?>/gi, '$1')
+    // Replace <time datetime="...">text</time> with just the datetime value
+    .replace(/<time[^>]*datetime="([^"]+)"[^>]*>[\s\S]*?<\/time>/gi, ' $1 ')
+    .replace(/<time[^>]*datetime="([^"]+)"[^>]*\/?>/gi, ' $1 ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
