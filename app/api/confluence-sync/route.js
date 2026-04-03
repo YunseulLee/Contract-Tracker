@@ -132,7 +132,7 @@ function parseExcerpt(excerpt) {
 function parsePeriod(str) {
   if (!str) return { start_date: null, end_date: null };
   // Support ~, ～(fullwidth), –(en-dash), —(em-dash), to
-  const m = str.match(/(\d{4}[-./]\d{2}[-./]\d{2})\s*[~～–—]|to\s*(\d{4}[-./]\d{2}[-./]\d{2})/);
+  const m = str.match(/(\d{4}[-./]\d{2}[-./]\d{2})\s*(?:[~～–—]|to)\s*(\d{4}[-./]\d{2}[-./]\d{2})/);
   if (m) return { start_date: m[1].replace(/\./g, '-'), end_date: m[2].replace(/\./g, '-') };
   // Try matching two dates in sequence
   const dates = [...str.matchAll(/(\d{4}[-./]\d{2}[-./]\d{2})/g)];
@@ -199,12 +199,10 @@ export async function GET(request) {
 
           let parsed;
 
-          // For incremental sync: fetch full page for accurate parsing
-          if (mode === 'incremental') {
-            const page = await confluenceGetPage(pageId);
-            if (page?.body?.view?.value) {
-              parsed = parsePageBody(page.body.view.value);
-            }
+          // Fetch full page for accurate parsing
+          const page = await confluenceGetPage(pageId);
+          if (page?.body?.view?.value) {
+            parsed = parsePageBody(page.body.view.value);
           }
 
           // Fallback to excerpt parsing
