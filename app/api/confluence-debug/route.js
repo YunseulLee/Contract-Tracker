@@ -30,6 +30,25 @@ export async function GET(request) {
     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
     .replace(/\s+/g, ' ').trim();
 
+  // If cql param, test raw CQL
+  const rawCql = searchParams.get('cql');
+  if (rawCql) {
+    const searchUrl = new URL(`${CONFLUENCE_BASE}/wiki/rest/api/content/search`);
+    searchUrl.searchParams.set('cql', rawCql);
+    searchUrl.searchParams.set('limit', '5');
+    const sRes = await fetch(searchUrl.toString(), {
+      headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
+    });
+    const sData = await sRes.json();
+    return Response.json({
+      cql: rawCql,
+      size: sData.size,
+      has_next: !!sData._links?.next,
+      titles: (sData.results || []).map(r => r.title),
+      error: sData.message || null,
+    });
+  }
+
   // If searchAncestor param, test CQL search
   const searchAncestor = searchParams.get('searchAncestor');
   let searchResult = null;
