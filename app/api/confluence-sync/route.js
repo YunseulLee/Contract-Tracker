@@ -239,7 +239,7 @@ export async function GET(request) {
         }
 
         start += results.length;
-        hasMore = (data.totalSize || 0) > start && results.length > 0;
+        hasMore = results.length > 0 && (!!data._links?.next || results.length >= 50);
       }
     }
 
