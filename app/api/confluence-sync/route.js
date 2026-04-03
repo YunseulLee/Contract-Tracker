@@ -177,9 +177,7 @@ export async function GET(request) {
     const contracts = [];
     const skippedPages = [];
     const seenUrls = new Set();
-    const needsBodyFetch = []; // pages where excerpt parsing failed
-
-    // Phase 1: Search all pages and try excerpt parsing
+    // Search all pages and parse from excerpt
     for (const [ancestorId, studio] of Object.entries(STUDIO_ANCESTORS)) {
       let cql = `type="page" AND ancestor=${ancestorId} AND (label="procurement_db" OR title~"계약" OR title~"Renewal" OR title~"License" OR title~"maintenance" OR title~"연간")`;
       if (mode === 'incremental') {
@@ -221,50 +219,12 @@ export async function GET(request) {
               status: 'active',
             });
           } else {
-            needsBodyFetch.push({ pageId, title: result.title, wikiUrl, studio });
+            skippedPages.push({ pageId, title: result.title, wiki_url: wikiUrl, reason: 'no end_date' });
           }
         }
 
         start += results.length;
         hasMore = results.length > 0 && (!!data._links?.next || results.length >= 50);
-      }
-    }
-
-    // Phase 2: Fetch full body for pages where excerpt parsing failed (parallel, batches of 10)
-    for (let i = 0; i < needsBodyFetch.length; i += 10) {
-      const batch = needsBodyFetch.slice(i, i + 10);
-      const pages = await Promise.all(batch.map(b => confluenceGetPage(b.pageId)));
-
-      for (let j = 0; j < batch.length; j++) {
-        const { pageId, title, wikiUrl, studio } = batch[j];
-        const page = pages[j];
-        let parsed = {};
-
-        if (page?.body?.view?.value) {
-          parsed = parsePageBody(page.body.view.value);
-        }
-
-        const period = parsePeriod(parsed.period);
-        if (!period.end_date) {
-          skippedPages.push({ pageId, title, wiki_url: wikiUrl, reason: 'no end_date' });
-          continue;
-        }
-
-        const cost = parseCost(parsed.cost);
-        contracts.push({
-          vendor: parsed.vendor || title,
-          name: parsed.item || title,
-          type: parsed.type || '',
-          start_date: period.start_date,
-          end_date: period.end_date,
-          annual_cost: cost.amount,
-          currency: cost.currency,
-          studio,
-          owner_name: parsed.owner || '',
-          supplier: parsed.supplier || parsed.vendor || '',
-          wiki_url: wikiUrl,
-          status: 'active',
-        });
       }
     }
 
