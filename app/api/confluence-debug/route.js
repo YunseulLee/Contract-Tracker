@@ -22,9 +22,18 @@ export async function GET(request) {
   if (!res.ok) return Response.json({ error: `Confluence ${res.status}` }, { status: res.status });
 
   const page = await res.json();
+  // Extract text from HTML for debugging
+  const bodyHtml = page.body?.view?.value || '';
+  const bodyText = bodyHtml
+    .replace(/<time[^>]*datetime="([^"]+)"[^>]*\/?>/gi, '$1')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ').trim();
+
   return Response.json({
     id: page.id,
     title: page.title,
     ancestors: (page.ancestors || []).map(a => ({ id: a.id, title: a.title })),
+    body_text: bodyText.substring(0, 3000),
   });
 }
