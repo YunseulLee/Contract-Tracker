@@ -310,7 +310,7 @@ export default function ContractTracker() {
                   <div key={c.id} onClick={() => setShowDetail(c)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px", background: uc.bg, border: `1px solid ${uc.border}40`, borderLeft: `3px solid ${uc.dot}`, borderRadius: 12, marginBottom: 8, cursor: "pointer", animation: `slideIn 0.3s ease ${i * 0.06}s both` }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                       <StatusBadge urgency={urg} autoRenew={c.auto_renew} />
-                      <div><div style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.2px" }}>{c.vendor}</div><div style={{ fontSize: 12, color: "#636B7E" }}>{c.name}{c.owner_name ? ` · ${c.owner_name}` : ""}</div></div>
+                      <div><div style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.2px" }}>{c.name}</div><div style={{ fontSize: 12, color: "#636B7E" }}>{c.vendor}{c.owner_name ? ` · ${c.owner_name}` : ""}</div></div>
                     </div>
                     <div style={{ textAlign: "right" }}><div style={{ fontSize: 22, fontWeight: 800, color: uc.text, fontFamily: "'JetBrains Mono', monospace" }}>D-{dl}</div><div style={{ fontSize: 11, color: "#636B7E" }}>{c.end_date}</div></div>
                   </div>
@@ -327,7 +327,7 @@ export default function ContractTracker() {
                       <div key={c.id} onClick={() => setShowDetail(c)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px", background: "#2D1B1B", border: "1px solid #8B3A3A40", borderLeft: "3px solid #F06B6B", borderRadius: 12, marginBottom: 8, cursor: "pointer", animation: `slideIn 0.3s ease ${i * 0.06}s both` }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                           <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: "#2D1B1B", color: "#F06B6B", border: "1px solid #8B3A3A" }}>종료</span>
-                          <div><div style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.2px" }}>{c.vendor}</div><div style={{ fontSize: 12, color: "#636B7E" }}>{c.name}{c.owner_name ? ` · ${c.owner_name}` : ""}</div></div>
+                          <div><div style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.2px" }}>{c.name}</div><div style={{ fontSize: 12, color: "#636B7E" }}>{c.vendor}{c.owner_name ? ` · ${c.owner_name}` : ""}</div></div>
                         </div>
                         <div style={{ textAlign: "right" }}><div style={{ fontSize: 22, fontWeight: 800, color: "#F06B6B", fontFamily: "'JetBrains Mono', monospace" }}>D+{Math.abs(dl)}</div><div style={{ fontSize: 11, color: "#636B7E" }}>종료일 {c.end_date}</div></div>
                       </div>
