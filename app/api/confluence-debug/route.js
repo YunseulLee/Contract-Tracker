@@ -30,10 +30,31 @@ export async function GET(request) {
     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
     .replace(/\s+/g, ' ').trim();
 
+  // If searchAncestor param, test CQL search
+  const searchAncestor = searchParams.get('searchAncestor');
+  let searchResult = null;
+  if (searchAncestor) {
+    const cql = `type="page" AND ancestor=${searchAncestor}`;
+    const searchUrl = new URL(`${CONFLUENCE_BASE}/wiki/rest/api/content/search`);
+    searchUrl.searchParams.set('cql', cql);
+    searchUrl.searchParams.set('limit', '200');
+    const sRes = await fetch(searchUrl.toString(), {
+      headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
+    });
+    const sData = await sRes.json();
+    const allIds = (sData.results || []).map(r => r.content?.id || r.id);
+    searchResult = {
+      total: sData.totalSize || sData.size,
+      includes_page: allIds.includes(pageId),
+      first_10_ids: allIds.slice(0, 10),
+    };
+  }
+
   return Response.json({
     id: page.id,
     title: page.title,
     ancestors: (page.ancestors || []).map(a => ({ id: a.id, title: a.title })),
     body_text: bodyText.substring(0, 3000),
+    searchResult,
   });
 }
