@@ -22,7 +22,12 @@ export async function POST(request) {
       return Response.json({ error: "webhookUrl과 message가 필요합니다." }, { status: 400 });
     }
 
-    if (!webhookUrl.startsWith("https://hooks.slack.com/")) {
+    try {
+      const parsed = new URL(webhookUrl);
+      if (parsed.hostname !== "hooks.slack.com") {
+        return Response.json({ error: "유효한 Slack Webhook URL이 아닙니다." }, { status: 400 });
+      }
+    } catch {
       return Response.json({ error: "유효한 Slack Webhook URL이 아닙니다." }, { status: 400 });
     }
 

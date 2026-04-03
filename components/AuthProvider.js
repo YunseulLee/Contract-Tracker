@@ -39,7 +39,7 @@ export default function AuthProvider({ children }) {
       }, { onConflict: 'user_id' });
       setRole(assignRole);
     } catch {
-      setRole('admin');
+      setRole('viewer');
     }
   };
 

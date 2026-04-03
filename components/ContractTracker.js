@@ -398,10 +398,10 @@ export default function ContractTracker() {
                         <td style={{ padding: "12px 16px", fontSize: 12, color: "#949BAD" }}>{c.owner_name || "—"}</td>
                         <td style={{ padding: "12px 16px", color: "#949BAD", fontFamily: "'JetBrains Mono', monospace" }}>{c.end_date}</td>
                         <td style={{ padding: "12px 16px", fontWeight: 800, color: isTerm ? "#636B7E" : uc.text, fontFamily: "'JetBrains Mono', monospace" }}>{isTerm ? "종료" : dl > 0 ? `D-${dl}` : dl === 0 ? "D-Day" : `D+${Math.abs(dl)}`}</td>
-                        <td style={{ padding: "12px 16px", display: "flex", gap: 6 }}>
+                        <td style={{ padding: "12px 16px" }}><div style={{ display: "flex", gap: 6 }}>
                           <button onClick={(e) => { e.stopPropagation(); setEditContract(c); setShowForm(true); }} style={{ background: "none", border: "1px solid #2B3044", borderRadius: 6, color: "#636B7E", padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>수정</button>
                           <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }} style={{ background: "none", border: "1px solid #8B3A3A40", borderRadius: 6, color: "#F06B6B", padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>삭제</button>
-                        </td>
+                        </div></td>
                       </tr>
                     );
                   })}</tbody>
