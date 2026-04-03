@@ -32,7 +32,6 @@ async function confluenceSearch(cql, limit = 50, start = 0) {
   url.searchParams.set('cql', cql);
   url.searchParams.set('limit', String(limit));
   url.searchParams.set('start', String(start));
-  url.searchParams.set('expand', 'body.view');
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
@@ -178,7 +177,9 @@ export async function GET(request) {
     const contracts = [];
     const skippedPages = [];
     const seenUrls = new Set();
+    const needsBodyFetch = []; // pages where excerpt parsing failed
 
+    // Phase 1: Search all pages and try excerpt parsing
     for (const [ancestorId, studio] of Object.entries(STUDIO_ANCESTORS)) {
       let cql = `type="page" AND ancestor=${ancestorId}`;
       if (mode === 'incremental') {
@@ -200,48 +201,70 @@ export async function GET(request) {
           if (seenUrls.has(wikiUrl)) continue;
           seenUrls.add(wikiUrl);
 
-          let parsed;
-
-          // Parse from full page body (included in search results via expand)
-          const bodyHtml = result.content?.body?.view?.value || result.body?.view?.value;
-          if (bodyHtml) {
-            parsed = parsePageBody(bodyHtml);
-          }
-
-          // Fallback to excerpt parsing
-          if (!parsed || !parsed.period || Object.keys(parsed).length < 3) {
-            const excerptParsed = parseExcerpt(result.excerpt || '');
-            parsed = { ...parsed, ...excerptParsed };
-          }
-
+          const parsed = parseExcerpt(result.excerpt || '');
           const period = parsePeriod(parsed.period);
-          const cost = parseCost(parsed.cost);
 
-          // Skip contracts without end_date (DB requires NOT NULL)
-          if (!period.end_date) {
-            skippedPages.push({ pageId, title: result.title, wiki_url: wikiUrl, reason: 'no end_date' });
-            console.warn(`Skipped [${result.title}] (${wikiUrl}): no end_date`);
-            continue;
+          if (period.end_date) {
+            const cost = parseCost(parsed.cost);
+            contracts.push({
+              vendor: parsed.vendor || result.title,
+              name: parsed.item || result.title,
+              type: parsed.type || '',
+              start_date: period.start_date,
+              end_date: period.end_date,
+              annual_cost: cost.amount,
+              currency: cost.currency,
+              studio,
+              owner_name: parsed.owner || '',
+              supplier: parsed.supplier || parsed.vendor || '',
+              wiki_url: wikiUrl,
+              status: 'active',
+            });
+          } else {
+            needsBodyFetch.push({ pageId, title: result.title, wikiUrl, studio });
           }
-
-          contracts.push({
-            vendor: parsed.vendor || result.title,
-            name: parsed.item || result.title,
-            type: parsed.type || '',
-            start_date: period.start_date,
-            end_date: period.end_date,
-            annual_cost: cost.amount,
-            currency: cost.currency,
-            studio,
-            owner_name: parsed.owner || '',
-            supplier: parsed.supplier || parsed.vendor || '',
-            wiki_url: wikiUrl,
-            status: 'active',
-          });
         }
 
         start += results.length;
         hasMore = results.length > 0 && (!!data._links?.next || results.length >= 50);
+      }
+    }
+
+    // Phase 2: Fetch full body for pages where excerpt parsing failed (parallel, batches of 10)
+    for (let i = 0; i < needsBodyFetch.length; i += 10) {
+      const batch = needsBodyFetch.slice(i, i + 10);
+      const pages = await Promise.all(batch.map(b => confluenceGetPage(b.pageId)));
+
+      for (let j = 0; j < batch.length; j++) {
+        const { pageId, title, wikiUrl, studio } = batch[j];
+        const page = pages[j];
+        let parsed = {};
+
+        if (page?.body?.view?.value) {
+          parsed = parsePageBody(page.body.view.value);
+        }
+
+        const period = parsePeriod(parsed.period);
+        if (!period.end_date) {
+          skippedPages.push({ pageId, title, wiki_url: wikiUrl, reason: 'no end_date' });
+          continue;
+        }
+
+        const cost = parseCost(parsed.cost);
+        contracts.push({
+          vendor: parsed.vendor || title,
+          name: parsed.item || title,
+          type: parsed.type || '',
+          start_date: period.start_date,
+          end_date: period.end_date,
+          annual_cost: cost.amount,
+          currency: cost.currency,
+          studio,
+          owner_name: parsed.owner || '',
+          supplier: parsed.supplier || parsed.vendor || '',
+          wiki_url: wikiUrl,
+          status: 'active',
+        });
       }
     }
 
