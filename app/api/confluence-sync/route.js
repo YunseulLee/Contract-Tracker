@@ -18,14 +18,12 @@ const STUDIO_ANCESTORS = {
   '91082469': 'Bluehole Studio',
   '91096574': 'inZOI Studio',
   '91096667': 'OmniCraft Labs',
-  '91087127': '클라우드 정산',
   // 2026
   '793187133': 'KRAFTON HQ',
   '793123395': 'Bluehole Studio',
   '793218974': 'inZOI Studio',
   '793123599': 'OmniCraft Labs',
   '952283440': 'OliveTree Games',
-  '793187453': '클라우드 정산',
 };
 
 async function confluenceSearch(cql, limit = 50, start = 0) {
@@ -77,7 +75,7 @@ function parsePageBody(html) {
     else if (header.includes('제조사') && !fields.vendor) fields.vendor = value;
     else if (header.includes('공급사') && !fields.supplier) fields.supplier = value;
     else if (header.includes('계약') && header.includes('품목') && !fields.item) fields.item = value;
-    else if (header.includes('계약') && header.includes('기간') && !fields.period) fields.period = value;
+    else if ((header.includes('기간') && (header.includes('계약') || header.includes('서비스') || header.includes('용역') || header.includes('이용') || header.includes('라이선스'))) && !fields.period) fields.period = value;
     else if (header.includes('비용') && !header.includes('결') && !fields.cost) fields.cost = value;
   }
   return fields;
@@ -96,7 +94,7 @@ function parseExcerpt(excerpt) {
     { match: /^(?:\d+\.\s*)?제조사$/i, field: 'vendor' },
     { match: /^(?:\d+\.\s*)?공급사$/i, field: 'supplier' },
     { match: /^(?:\d+\.\s*)?계약\s*품목$/i, field: 'item' },
-    { match: /^(?:\d+\.\s*)?계약\s*기간$/i, field: 'period' },
+    { match: /^(?:\d+\.\s*)?(?:계약|서비스|용역|이용|라이선스)\s*기간$/i, field: 'period' },
     { match: /^(?:\d+\.\s*)?(?:사용\s*)?비용$/i, field: 'cost' },
   ];
   const stopPatterns = [
@@ -118,7 +116,7 @@ function parseExcerpt(excerpt) {
   }
 
   // Fallback: inline format "3) 공급사 : value"
-  if (Object.keys(fields).length < 3) {
+  if (Object.keys(fields).length < 3 || !fields.period) {
     for (const line of lines) {
       if (!fields.supplier) { const m = line.match(/\d+\)\s*공급사\s*[:：]\s*(.+)/); if (m) fields.supplier = m[1].trim(); }
       if (!fields.vendor) { const m = line.match(/\d+\)\s*(?:Vendor|제조사)\s*[:：]\s*(.+)/i); if (m) fields.vendor = m[1].trim(); }
@@ -133,10 +131,13 @@ function parseExcerpt(excerpt) {
 
 function parsePeriod(str) {
   if (!str) return { start_date: null, end_date: null };
-  const m = str.match(/(\d{4}[-./]\d{2}[-./]\d{2})\s*~\s*(\d{4}[-./]\d{2}[-./]\d{2})/);
+  // Support ~, ～(fullwidth), –(en-dash), —(em-dash), to
+  const m = str.match(/(\d{4}[-./]\d{2}[-./]\d{2})\s*[~～–—]|to\s*(\d{4}[-./]\d{2}[-./]\d{2})/);
   if (m) return { start_date: m[1].replace(/\./g, '-'), end_date: m[2].replace(/\./g, '-') };
-  const single = str.match(/(\d{4}[-./]\d{2}[-./]\d{2})/);
-  if (single) return { start_date: single[1].replace(/\./g, '-'), end_date: null };
+  // Try matching two dates in sequence
+  const dates = [...str.matchAll(/(\d{4}[-./]\d{2}[-./]\d{2})/g)];
+  if (dates.length >= 2) return { start_date: dates[0][1].replace(/\./g, '-'), end_date: dates[1][1].replace(/\./g, '-') };
+  if (dates.length === 1) return { start_date: dates[0][1].replace(/\./g, '-'), end_date: null };
   return { start_date: null, end_date: null };
 }
 
@@ -172,10 +173,11 @@ export async function GET(request) {
     }
 
     const contracts = [];
+    const skippedPages = [];
     const seenUrls = new Set();
 
     for (const [ancestorId, studio] of Object.entries(STUDIO_ANCESTORS)) {
-      let cql = `type="page" AND label="procurement_db" AND ancestor=${ancestorId}`;
+      let cql = `type="page" AND ancestor=${ancestorId}`;
       if (mode === 'incremental') {
         cql += ` AND lastModified >= "now-1d"`;
       }
@@ -214,7 +216,11 @@ export async function GET(request) {
           const cost = parseCost(parsed.cost);
 
           // Skip contracts without end_date (DB requires NOT NULL)
-          if (!period.end_date) continue;
+          if (!period.end_date) {
+            skippedPages.push({ pageId, title: result.title, wiki_url: wikiUrl, reason: 'no end_date' });
+            console.warn(`Skipped [${result.title}] (${wikiUrl}): no end_date`);
+            continue;
+          }
 
           contracts.push({
             vendor: parsed.vendor || result.title,
@@ -310,7 +316,8 @@ export async function GET(request) {
       created,
       updated,
       errors,
-      skipped_no_end_date: seenUrls.size - contracts.length,
+      skipped_no_end_date: skippedPages.length,
+      skipped_pages: skippedPages,
     });
   } catch (error) {
     console.error('Confluence sync error:', error);
