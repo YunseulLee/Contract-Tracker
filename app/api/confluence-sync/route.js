@@ -181,8 +181,7 @@ export async function GET(request) {
 
     // Phase 1: Search all pages and try excerpt parsing
     for (const [ancestorId, studio] of Object.entries(STUDIO_ANCESTORS)) {
-      // Search with label first; if no label, search by title pattern for contract-like pages
-      let cql = `type="page" AND ancestor=${ancestorId} AND (label="procurement_db" OR title~"계약" OR title~"Renewal" OR title~"License" OR title~"Subscription" OR title~"maintenance" OR title~"Amendment" OR title~"용역" OR title~"연간" OR title~"갱신" OR title~"Support" OR title~"연장" OR title~"도입")`;
+      let cql = `type="page" AND ancestor=${ancestorId} AND (label="procurement_db" OR title~"계약" OR title~"Renewal" OR title~"License" OR title~"maintenance" OR title~"연간")`;
       if (mode === 'incremental') {
         cql += ` AND lastModified >= "now-1d"`;
       }
