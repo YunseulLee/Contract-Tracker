@@ -177,23 +177,11 @@ export async function GET(request) {
     const contracts = [];
     const skippedPages = [];
     const seenUrls = new Set();
-    // Build CQL queries: label-based (supports lastModified) + title-based (no lastModified)
-    function buildCqlList(ancestorId) {
-      const base = `type="page" AND ancestor=${ancestorId}`;
-      const queries = [];
-      // Query 1: label-based (works with lastModified)
-      let labelCql = `${base} AND label="procurement_db"`;
-      if (mode === 'incremental') labelCql += ` AND lastModified >= "now-1d"`;
-      queries.push(labelCql);
-      // Query 2: title keyword search (title~ incompatible with lastModified)
-      if (mode === 'full') {
-        queries.push(`${base} AND title~"계약"`);
-        queries.push(`${base} AND title~"Renewal"`);
-        queries.push(`${base} AND title~"License"`);
-        queries.push(`${base} AND title~"maintenance"`);
-        queries.push(`${base} AND title~"연간"`);
-      }
-      return queries;
+    const ancestorIds = Object.keys(STUDIO_ANCESTORS);
+
+    // Resolve studio from ancestor IDs in page URL or search context
+    function resolveStudio(result, defaultStudio) {
+      return defaultStudio;
     }
 
     async function searchAllPages(cql) {
@@ -241,11 +229,31 @@ export async function GET(request) {
       }
     }
 
+    // Search per ancestor with label (fast, works with incremental)
     for (const [ancestorId, studio] of Object.entries(STUDIO_ANCESTORS)) {
-      const cqlList = buildCqlList(ancestorId);
-      for (const cql of cqlList) {
+      let cql = `type="page" AND ancestor=${ancestorId} AND label="procurement_db"`;
+      if (mode === 'incremental') cql += ` AND lastModified >= "now-1d"`;
+      const results = await searchAllPages(cql);
+      for (const result of results) processResult(result, studio);
+    }
+
+    // Full sync: also search by title keywords across entire space (single queries, no ancestor loop)
+    if (mode === 'full') {
+      const titleKeywords = ['계약', 'Renewal', 'License', 'maintenance', '연간'];
+      for (const keyword of titleKeywords) {
+        const cql = `type="page" AND space="ITPurchase" AND title~"${keyword}"`;
         const results = await searchAllPages(cql);
         for (const result of results) {
+          // Determine studio from ancestor match
+          let studio = 'KRAFTON HQ'; // default
+          for (const [ancestorId, studioName] of Object.entries(STUDIO_ANCESTORS)) {
+            // Check via page ancestors if available
+            const ancestors = result.content?.ancestors || result.ancestors || [];
+            if (ancestors.some(a => a.id === ancestorId)) {
+              studio = studioName;
+              break;
+            }
+          }
           processResult(result, studio);
         }
       }
