@@ -1,9 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+let _supabase;
+function getSupabase() {
+  if (!_supabase) {
+    _supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+  }
+  return _supabase;
+}
 
 function getDaysUntil(dateStr) {
   if (!dateStr) return Infinity;
@@ -137,7 +143,7 @@ export async function GET(request) {
 
   try {
     // 1. 활성 계약 가져오기
-    const { data: contracts, error } = await supabase
+    const { data: contracts, error } = await getSupabase()
       .from("contracts")
       .select("*")
       .eq("status", "active")
@@ -246,7 +252,7 @@ export async function GET(request) {
       const daysToEnd = getDaysUntil(c.end_date);
       // 90일 이내이고 아직 갱신 검토가 시작되지 않은 계약
       if (daysToEnd > 0 && daysToEnd <= 90 && (!c.renewal_status || c.renewal_status === "none")) {
-        const { error } = await supabase
+        const { error } = await getSupabase()
           .from("contracts")
           .update({ renewal_status: "pending_review", updated_at: new Date().toISOString() })
           .eq("id", c.id);
@@ -259,7 +265,7 @@ export async function GET(request) {
       }
       // 갱신 승인 후 새 종료일 기준으로 다시 90일 밖이면 상태 리셋
       if (c.renewal_status === "approved" && daysToEnd > 90) {
-        await supabase
+        await getSupabase()
           .from("contracts")
           .update({ renewal_status: "none", renewal_decided_at: null, renewal_decided_by: "", renewal_notes: "", updated_at: new Date().toISOString() })
           .eq("id", c.id);

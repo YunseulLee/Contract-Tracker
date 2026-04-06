@@ -2,10 +2,16 @@ import { createClient } from '@supabase/supabase-js';
 
 export const maxDuration = 300;
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+let _supabase;
+function getSupabase() {
+  if (!_supabase) {
+    _supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+  }
+  return _supabase;
+}
 
 const CONFLUENCE_BASE = process.env.CONFLUENCE_BASE_URL || 'https://krafton.atlassian.net';
 const CONFLUENCE_EMAIL = process.env.CONFLUENCE_EMAIL;
@@ -300,7 +306,7 @@ export async function GET(request) {
     }
 
     // Fetch existing contracts with wiki_urls for matching
-    const { data: existingContracts } = await supabase
+    const { data: existingContracts } = await getSupabase()
       .from('contracts')
       .select('id, wiki_url')
       .neq('wiki_url', '')
@@ -328,12 +334,12 @@ export async function GET(request) {
     // Batch insert new contracts (50 at a time)
     for (let i = 0; i < toInsert.length; i += 50) {
       const batch = toInsert.slice(i, i + 50);
-      const { error } = await supabase.from('contracts').insert(batch);
+      const { error } = await getSupabase().from('contracts').insert(batch);
       if (error) {
         console.error('Insert error:', error.message);
         // Retry individually to find problematic rows
         for (const row of batch) {
-          const { error: e2 } = await supabase.from('contracts').insert(row);
+          const { error: e2 } = await getSupabase().from('contracts').insert(row);
           if (e2) { errors++; console.error(`Insert fail [${row.vendor}]:`, e2.message); }
           else created++;
         }
@@ -359,7 +365,7 @@ export async function GET(request) {
       if (data.supplier) updateFields.supplier = data.supplier;
 
       if (Object.keys(updateFields).length > 0) {
-        const { error } = await supabase.from('contracts').update(updateFields).eq('id', id);
+        const { error } = await getSupabase().from('contracts').update(updateFields).eq('id', id);
         if (error) { errors++; console.error(`Update fail [${data.vendor}]:`, error.message); }
         else updated++;
       }
