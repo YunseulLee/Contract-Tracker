@@ -168,8 +168,12 @@ function parseCost(str) {
 }
 
 export async function GET(request) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return new Response('Server misconfigured: CRON_SECRET not set', { status: 500 });
+  }
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return new Response('Unauthorized', { status: 401 });
   }
 

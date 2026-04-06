@@ -380,7 +380,7 @@ export default function ContractTracker() {
                 <select style={{ ...inputStyle, width: 160 }} value={filterType} onChange={(e) => setFilterType(e.target.value)}><option value="all">모든 유형</option>{existingTypes.map((t) => <option key={t} value={t}>{t}</option>)}</select>
                 <select style={{ ...inputStyle, width: 140 }} value={sortBy} onChange={(e) => setSortBy(e.target.value)}><option value="urgency">긴급도순</option><option value="end_date_asc">종료일 ↑</option><option value="end_date_desc">종료일 ↓</option><option value="cost">비용순</option><option value="vendor">벤더순</option></select>
               </div>
-              <div style={{ borderRadius: 16, border: "1px solid #1F2233", overflow: "hidden" }}>
+              <div style={{ borderRadius: 16, border: "1px solid #1F2233", overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead><tr style={{ background: "#1C1F2A" }}>{["상태", "벤더", "공급사", "계약명", "유형", "담당자", "종료일", "D-Day", ""].map((h, i) => <th key={i} style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, color: "#636B7E", textTransform: "uppercase", letterSpacing: "0.8px", fontWeight: 700, borderBottom: "2px solid #2B3044" }}>{h}</th>)}</tr></thead>
                   <tbody>{filtered.map((c) => {
@@ -439,7 +439,7 @@ export default function ContractTracker() {
               </div>
               {sortedExpired.length === 0 ? <div style={{ textAlign: "center", padding: 60, color: "#444A58", fontSize: 13 }}>{expiredSearch ? "검색 결과가 없습니다." : "종료된 계약이 없습니다."}</div> : (
                 <>
-                <div style={{ borderRadius: 16, border: "1px solid #1F2233", overflow: "hidden" }}>
+                <div style={{ borderRadius: 16, border: "1px solid #1F2233", overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead><tr style={{ background: "#1C1F2A" }}>{["상태", "벤더", "공급사", "계약명", "유형", "담당자", "종료일", "경과"].map((h, i) => <th key={i} style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, color: "#636B7E", textTransform: "uppercase", letterSpacing: "0.8px", fontWeight: 700, borderBottom: "2px solid #2B3044" }}>{h}</th>)}</tr></thead>
                     <tbody>{pagedExpired.map((c) => {
@@ -485,7 +485,7 @@ export default function ContractTracker() {
                 <div><div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 700, letterSpacing: "-0.2px" }}><Trash2 size={20} strokeWidth={2} /> 휴지통</div><div style={{ fontSize: 12, color: "#636B7E", marginTop: 4 }}>삭제된 계약은 30일 후 완전 삭제됩니다.</div></div>
               </div>
               {deletedContracts.length === 0 ? <div style={{ textAlign: "center", padding: 60, color: "#444A58", fontSize: 13 }}>휴지통이 비어 있습니다.</div> : (
-                <div style={{ borderRadius: 16, border: "1px solid #1F2233", overflow: "hidden" }}>
+                <div style={{ borderRadius: 16, border: "1px solid #1F2233", overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead><tr style={{ background: "#1C1F2A" }}>{["벤더", "계약명", "유형", "종료일", "삭제일", "상태", ""].map((h, i) => <th key={i} style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, color: "#636B7E", textTransform: "uppercase", letterSpacing: "0.8px", fontWeight: 700, borderBottom: "2px solid #2B3044" }}>{h}</th>)}</tr></thead>
                     <tbody>{deletedContracts.map((c) => {

@@ -34,7 +34,7 @@ input:focus, select:focus, textarea:focus { border-color: #4A9FD8 !important; ou
   --text-tertiary: #636B7E;
   --text-disabled: #444A58;
   --accent-blue: #4A9FD8;
-  --accent-blue-light: #4A9FD8;
+  --accent-blue-light: #6BB3E0;
   --accent-green: #2DD4A0;
   --accent-green-dark: #10B981;
   --accent-red: #F06B6B;
@@ -95,7 +95,7 @@ input:focus, select:focus, textarea:focus { border-color: #4A9FD8 !important; ou
 .table-container {
   border-radius: 12px;
   border: 1px solid var(--border-subtle);
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 .table-container table {

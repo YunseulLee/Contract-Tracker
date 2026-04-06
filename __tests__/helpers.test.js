@@ -1,5 +1,23 @@
 import { formatCurrency, getDaysUntil, getUrgencyLevel } from '@/lib/helpers';
 
+// KST 기준 오늘 날짜 문자열 생성 (getDaysUntil이 KST 기준이므로 테스트도 KST 기준)
+function kstToday() {
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function kstDateOffset(days) {
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+  now.setDate(now.getDate() + days);
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 describe('formatCurrency', () => {
   test('USD 포맷', () => {
     expect(formatCurrency(48000, 'USD')).toBe('$48,000');
@@ -26,31 +44,21 @@ describe('getDaysUntil', () => {
   });
 
   test('오늘 날짜는 0 반환', () => {
-    const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10);
-    expect(getDaysUntil(dateStr)).toBe(0);
+    expect(getDaysUntil(kstToday())).toBe(0);
   });
 
   test('미래 날짜는 양수 반환', () => {
-    const future = new Date();
-    future.setDate(future.getDate() + 10);
-    const dateStr = future.toISOString().slice(0, 10);
-    expect(getDaysUntil(dateStr)).toBe(10);
+    expect(getDaysUntil(kstDateOffset(10))).toBe(10);
   });
 
   test('과거 날짜는 음수 반환', () => {
-    const past = new Date();
-    past.setDate(past.getDate() - 5);
-    const dateStr = past.toISOString().slice(0, 10);
-    expect(getDaysUntil(dateStr)).toBe(-5);
+    expect(getDaysUntil(kstDateOffset(-5))).toBe(-5);
   });
 });
 
 describe('getUrgencyLevel', () => {
   const makeContract = (daysFromNow) => {
-    const d = new Date();
-    d.setDate(d.getDate() + daysFromNow);
-    return { end_date: d.toISOString().slice(0, 10), renewal_date: null };
+    return { end_date: kstDateOffset(daysFromNow), renewal_date: null };
   };
 
   test('만료된 계약은 expired', () => {

@@ -1,5 +1,15 @@
 import { generateNotifications } from '@/lib/notifications';
 
+// KST 기준 날짜 오프셋 (getDaysUntil이 KST 기준이므로 테스트도 KST 기준)
+function kstDateOffset(days) {
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+  now.setDate(now.getDate() + days);
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 describe('generateNotifications', () => {
   const makeContract = (overrides = {}) => ({
     id: 'test-1', vendor: 'Datadog', name: 'APM', type: 'SaaS',
@@ -17,27 +27,21 @@ describe('generateNotifications', () => {
   });
 
   test('만료 60일 이내 계약에 알림 생성', () => {
-    const d = new Date();
-    d.setDate(d.getDate() + 30);
-    const contract = makeContract({ end_date: d.toISOString().slice(0, 10) });
+    const contract = makeContract({ end_date: kstDateOffset(30) });
     const notifs = generateNotifications([contract]);
     expect(notifs.length).toBeGreaterThan(0);
     expect(notifs[0].type).toBe('expiry');
   });
 
   test('안전한 계약은 알림 없음', () => {
-    const d = new Date();
-    d.setDate(d.getDate() + 200);
-    const contract = makeContract({ end_date: d.toISOString().slice(0, 10) });
+    const contract = makeContract({ end_date: kstDateOffset(200) });
     const notifs = generateNotifications([contract]);
     expect(notifs).toHaveLength(0);
   });
 
   test('자동갱신 통지기한 알림 생성', () => {
-    const d = new Date();
-    d.setDate(d.getDate() + 45);
     const contract = makeContract({
-      end_date: d.toISOString().slice(0, 10),
+      end_date: kstDateOffset(45),
       auto_renew: true,
       auto_renew_notice_days: 30,
     });
@@ -47,9 +51,7 @@ describe('generateNotifications', () => {
   });
 
   test('만료된 계약 (30일 이내) 알림 생성', () => {
-    const d = new Date();
-    d.setDate(d.getDate() - 10);
-    const contract = makeContract({ end_date: d.toISOString().slice(0, 10) });
+    const contract = makeContract({ end_date: kstDateOffset(-10) });
     const notifs = generateNotifications([contract]);
     const expired = notifs.find((n) => n.type === 'expired');
     expect(expired).toBeDefined();
@@ -57,11 +59,9 @@ describe('generateNotifications', () => {
   });
 
   test('알림은 daysLeft 기준 오름차순 정렬', () => {
-    const d1 = new Date(); d1.setDate(d1.getDate() + 10);
-    const d2 = new Date(); d2.setDate(d2.getDate() + 50);
     const contracts = [
-      makeContract({ id: 'c1', end_date: d2.toISOString().slice(0, 10) }),
-      makeContract({ id: 'c2', end_date: d1.toISOString().slice(0, 10) }),
+      makeContract({ id: 'c1', end_date: kstDateOffset(50) }),
+      makeContract({ id: 'c2', end_date: kstDateOffset(10) }),
     ];
     const notifs = generateNotifications(contracts);
     for (let i = 1; i < notifs.length; i++) {

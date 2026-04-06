@@ -45,8 +45,8 @@ export default function RenewalWorkflow({ contract, onComplete }) {
   // 기본 새 종료일: 현재 종료일 + 1년
   useEffect(() => {
     if (contract.end_date) {
-      const d = new Date(contract.end_date);
-      d.setFullYear(d.getFullYear() + 1);
+      const d = new Date(contract.end_date + "T00:00:00Z");
+      d.setUTCFullYear(d.getUTCFullYear() + 1);
       setNewEndDate(d.toISOString().slice(0, 10));
     }
   }, [contract.end_date]);

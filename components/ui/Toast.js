@@ -11,7 +11,7 @@ export default function Toast({ message, type, onClose }) {
   useEffect(() => {
     const t = setTimeout(onClose, 3000);
     return () => clearTimeout(t);
-  }, [onClose]);
+  }, [message]);
 
   const c = colors[type] || colors.info;
   return (

@@ -1,5 +1,5 @@
 'use client';
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import InputField from "./ui/InputField";
 import EditableSelect from "./ui/EditableSelect";
 import { inputStyle } from "@/lib/constants";
@@ -13,6 +13,9 @@ export default function ContractForm({ contract, onSave, onCancel, existingStudi
     supplier: "", installment_enabled: false, installment_schedule: [],
   };
   const [form, setForm] = useState(contract || empty);
+  useEffect(() => {
+    setForm(contract || empty);
+  }, [contract]);
   const up = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
   const studioOptions = existingStudios.length > 0 ? existingStudios : ["KRAFTON"];
@@ -42,7 +45,7 @@ export default function ContractForm({ contract, onSave, onCancel, existingStudi
           </select>
         </InputField>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "center" }}>
+      <div style={{ display: "grid", gridTemplateColumns: form.auto_renew ? "1fr 1fr" : "1fr", gap: 16, alignItems: "center" }}>
         <InputField label="자동갱신">
           <div onClick={() => up("auto_renew", !form.auto_renew)} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "10px 0" }}>
             <div style={{ width: 44, height: 24, borderRadius: 12, background: form.auto_renew ? "#4A9FD8" : "#2B3044", position: "relative", transition: "background 0.3s" }}>
@@ -73,7 +76,7 @@ export default function ContractForm({ contract, onSave, onCancel, existingStudi
       <div style={{ padding: "14px 0 6px", borderTop: "1px solid #1F2233", marginTop: 8 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: "#4A9FD8", letterSpacing: "1px", textTransform: "uppercase", marginBottom: 12 }}>💳 결제 방식</div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "center" }}>
+      <div style={{ display: "grid", gridTemplateColumns: form.installment_enabled ? "1fr 1fr" : "1fr", gap: 16, alignItems: "center" }}>
         <InputField label="분할 결제">
           <div onClick={() => {
             const willEnable = !form.installment_enabled;
@@ -146,9 +149,9 @@ export default function ContractForm({ contract, onSave, onCancel, existingStudi
       <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 24 }}>
         <button onClick={onCancel} style={{ padding: "10px 24px", borderRadius: 10, border: "1px solid #2B3044", background: "transparent", color: "#949BAD", fontSize: 14, cursor: "pointer" }}>취소</button>
         <button onClick={() => {
-          if (!form.vendor.trim() || !form.name.trim() || !form.end_date) return;
+          if (!form.vendor.trim() || !form.name.trim() || !form.start_date || !form.end_date) return;
           onSave(form);
-        }} disabled={!form.vendor.trim() || !form.name.trim() || !form.end_date} style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: (!form.vendor.trim() || !form.name.trim() || !form.end_date) ? "#2B3044" : "#4A9FD8", color: (!form.vendor.trim() || !form.name.trim() || !form.end_date) ? "#555" : "#F0F1F4", fontSize: 14, fontWeight: 600, cursor: (!form.vendor.trim() || !form.name.trim() || !form.end_date) ? "default" : "pointer" }}>{contract ? "수정" : "등록"}</button>
+        }} disabled={!form.vendor.trim() || !form.name.trim() || !form.start_date || !form.end_date} style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: (!form.vendor.trim() || !form.name.trim() || !form.start_date || !form.end_date) ? "#2B3044" : "#4A9FD8", color: (!form.vendor.trim() || !form.name.trim() || !form.start_date || !form.end_date) ? "#555" : "#F0F1F4", fontSize: 14, fontWeight: 600, cursor: (!form.vendor.trim() || !form.name.trim() || !form.start_date || !form.end_date) ? "default" : "pointer" }}>{contract ? "수정" : "등록"}</button>
       </div>
     </div>
   );

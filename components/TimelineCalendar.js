@@ -31,7 +31,7 @@ export default function TimelineCalendar({ contracts, onSelectContract }) {
       map[key] = items;
     });
     return map;
-  }, [contracts]);
+  }, [contracts, currentYear, currentMonth]);
 
   const getMonthColor = (key) => {
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);

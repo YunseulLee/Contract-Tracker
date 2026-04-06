@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getDaysUntil, formatCurrency } from '../../../lib/helpers';
 
 let _supabase;
 function getSupabase() {
@@ -9,19 +10,6 @@ function getSupabase() {
     );
   }
   return _supabase;
-}
-
-function getDaysUntil(dateStr) {
-  if (!dateStr) return Infinity;
-  const now = new Date();
-  now.setUTCHours(0, 0, 0, 0);
-  const target = new Date(dateStr + "T00:00:00Z");
-  return Math.ceil((target - now) / 86400000);
-}
-
-function formatCurrency(amount, currency) {
-  if (currency === "KRW") return `₩${(amount || 0).toLocaleString()}`;
-  return `$${(amount || 0).toLocaleString()}`;
 }
 
 function generateAlerts(contracts) {
@@ -78,12 +66,14 @@ function generateAlerts(contracts) {
       });
     }
 
-    // 이미 만료됨 (30일까지 알림 유지)
-    if (daysToEnd < 0 && daysToEnd >= -30) {
+    // 이미 만료됨 (당일 포함, 30일까지 알림 유지)
+    if (daysToEnd <= 0 && daysToEnd >= -30) {
       alerts.push({
         type: "❌ 만료", level: "escalation",
         vendor: c.vendor, name: c.name,
-        detail: `${Math.abs(daysToEnd)}일 전 만료됨 (${c.end_date})`,
+        detail: daysToEnd === 0
+          ? `오늘 만료 (${c.end_date})`
+          : `${Math.abs(daysToEnd)}일 전 만료됨 (${c.end_date})`,
         cost: formatCurrency(c.annual_cost, c.currency),
         owner: c.owner_name || "", ownerEmail: c.owner_email || "",
         studio: c.studio, daysLeft: daysToEnd,
@@ -132,8 +122,12 @@ async function sendSlackMessage(webhookUrl, message) {
 
 export async function GET(request) {
   // Vercel Cron 인증 확인
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return new Response("Server misconfigured: CRON_SECRET not set", { status: 500 });
+  }
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return new Response("Unauthorized", { status: 401 });
   }
 
