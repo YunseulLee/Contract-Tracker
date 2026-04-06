@@ -211,7 +211,7 @@ export default function ContractTracker() {
   }, [contracts, searchTerm, filterType, sortBy]);
 
   const stats = useMemo(() => {
-    const a = contracts.filter((c) => c.status === "active");
+    const a = contracts.filter((c) => c.status === "active" && getDaysUntil(c.end_date) >= 0);
     return {
       total: a.length,
       autoRenewCount: a.filter((c) => c.auto_renew).length,
