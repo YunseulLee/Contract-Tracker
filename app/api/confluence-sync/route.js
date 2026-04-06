@@ -210,9 +210,8 @@ export async function GET(request) {
       let parsed = parseExcerpt(result.excerpt || '');
       let period = parsePeriod(parsed.period);
 
-      // Fallback: excerpt에서 기간 파싱 실패 시 page body에서 재시도
-      if (!period.end_date) {
-        // 검색 결과에 body가 이미 포함된 경우 재사용, 아니면 개별 호출
+      // Fallback: excerpt에서 기간 파싱 실패 시 page body에서 재시도 (incremental만)
+      if (!period.end_date && mode === 'incremental') {
         const bodyHtml = result.body?.view?.value || result.content?.body?.view?.value;
         const html = bodyHtml || (await confluenceGetPage(pageId))?.body?.view?.value;
         if (html) {
@@ -272,11 +271,10 @@ export async function GET(request) {
 
     // Search per ancestor with label
     // incremental: 최근 1일 수정분만 / ancestors: 전체 + body 포함 / full: 전체 + 키워드
-    const needBody = mode === 'ancestors' || mode === 'full';
     for (const [ancestorId, studio] of Object.entries(targetAncestors)) {
       let cql = `type="page" AND ancestor=${ancestorId} AND label="procurement_db"`;
       if (mode === 'incremental') cql += ` AND lastmodified >= now("-1d")`;
-      const results = await searchAllPages(cql, needBody);
+      const results = await searchAllPages(cql);
       await processInParallel(results.map(result => ({ result, studio })));
     }
 
