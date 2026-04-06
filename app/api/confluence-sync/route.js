@@ -180,6 +180,7 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get('mode') || 'incremental'; // full | incremental | ancestors
   const yearFilter = searchParams.get('year'); // '2025' | '2026' | null (both)
+  const ancestorFilter = searchParams.get('ancestor'); // 특정 ancestor ID만 동기화
 
   try {
     if (!CONFLUENCE_EMAIL || !CONFLUENCE_TOKEN) {
@@ -275,9 +276,14 @@ export async function GET(request) {
     // year 필터링: 2025/2026 ancestor만 선택
     const ANCESTORS_2025 = { '91093896': 'KRAFTON HQ', '91082469': 'Bluehole Studio', '91096574': 'inZOI Studio', '91096667': 'OmniCraft Labs' };
     const ANCESTORS_2026 = { '793187133': 'KRAFTON HQ', '793123395': 'Bluehole Studio', '793218974': 'inZOI Studio', '793123599': 'OmniCraft Labs', '952283440': 'OliveTree Games' };
-    const targetAncestors = yearFilter === '2025' ? ANCESTORS_2025
+    let targetAncestors = yearFilter === '2025' ? ANCESTORS_2025
       : yearFilter === '2026' ? ANCESTORS_2026
       : STUDIO_ANCESTORS;
+
+    // 특정 ancestor ID 지정 시 해당 항목만 동기화
+    if (ancestorFilter && STUDIO_ANCESTORS[ancestorFilter]) {
+      targetAncestors = { [ancestorFilter]: STUDIO_ANCESTORS[ancestorFilter] };
+    }
 
     // Search per ancestor with label
     // incremental: 최근 1일 수정분만 / ancestors: 전체 + body 포함 / full: 전체 + 키워드
