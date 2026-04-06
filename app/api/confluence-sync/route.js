@@ -181,10 +181,59 @@ export async function GET(request) {
   const mode = searchParams.get('mode') || 'incremental'; // full | incremental | ancestors
   const yearFilter = searchParams.get('year'); // '2025' | '2026' | null (both)
   const ancestorFilter = searchParams.get('ancestor'); // 특정 ancestor ID만 동기화
+  const pageIdFilter = searchParams.get('pageId'); // 단건 동기화
 
   try {
     if (!CONFLUENCE_EMAIL || !CONFLUENCE_TOKEN) {
       throw new Error('CONFLUENCE_EMAIL 또는 CONFLUENCE_API_TOKEN 환경변수가 설정되지 않았습니다');
+    }
+
+    // 단건 동기화: pageId 지정 시 해당 페이지만 처리
+    if (pageIdFilter) {
+      const page = await confluenceGetPage(pageIdFilter);
+      if (!page) return Response.json({ error: 'Page not found' }, { status: 404 });
+
+      const bodyParsed = parsePageBody(page.body?.view?.value || '');
+      const period = parsePeriod(bodyParsed.period);
+      const wikiUrl = `https://krafton.atlassian.net/wiki/spaces/ITPurchase/pages/${pageIdFilter}`;
+
+      if (!period.end_date) {
+        return Response.json({ message: '계약기간을 파싱할 수 없습니다', title: page.title, parsed: bodyParsed });
+      }
+
+      const cost = parseCost(bodyParsed.cost);
+      const contract = {
+        vendor: bodyParsed.vendor || page.title,
+        name: bodyParsed.item || page.title,
+        type: bodyParsed.type || '',
+        start_date: period.start_date,
+        end_date: period.end_date,
+        annual_cost: cost.amount,
+        currency: cost.currency,
+        studio: 'KRAFTON HQ',
+        owner_name: bodyParsed.owner || '',
+        supplier: bodyParsed.supplier || bodyParsed.vendor || '',
+        wiki_url: wikiUrl,
+        status: 'active',
+      };
+
+      // 기존 데이터 확인 후 upsert
+      const { data: existing } = await getSupabase()
+        .from('contracts').select('id').eq('wiki_url', wikiUrl).maybeSingle();
+
+      let result;
+      if (existing) {
+        result = await getSupabase().from('contracts').update(contract).eq('id', existing.id);
+      } else {
+        result = await getSupabase().from('contracts').insert(contract);
+      }
+
+      if (result.error) return Response.json({ error: result.error.message }, { status: 500 });
+      return Response.json({
+        message: '단건 동기화 완료',
+        action: existing ? 'updated' : 'created',
+        contract,
+      });
     }
 
     const contracts = [];
