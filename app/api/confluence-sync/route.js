@@ -169,6 +169,7 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get('mode') || 'incremental'; // full | incremental | ancestors
+  const yearFilter = searchParams.get('year'); // '2025' | '2026' | null (both)
 
   try {
     if (!CONFLUENCE_EMAIL || !CONFLUENCE_TOKEN) {
@@ -262,10 +263,17 @@ export async function GET(request) {
       }
     }
 
+    // year 필터링: 2025/2026 ancestor만 선택
+    const ANCESTORS_2025 = { '91093896': 'KRAFTON HQ', '91082469': 'Bluehole Studio', '91096574': 'inZOI Studio', '91096667': 'OmniCraft Labs' };
+    const ANCESTORS_2026 = { '793187133': 'KRAFTON HQ', '793123395': 'Bluehole Studio', '793218974': 'inZOI Studio', '793123599': 'OmniCraft Labs', '952283440': 'OliveTree Games' };
+    const targetAncestors = yearFilter === '2025' ? ANCESTORS_2025
+      : yearFilter === '2026' ? ANCESTORS_2026
+      : STUDIO_ANCESTORS;
+
     // Search per ancestor with label
     // incremental: 최근 1일 수정분만 / ancestors: 전체 + body 포함 / full: 전체 + 키워드
     const needBody = mode === 'ancestors' || mode === 'full';
-    for (const [ancestorId, studio] of Object.entries(STUDIO_ANCESTORS)) {
+    for (const [ancestorId, studio] of Object.entries(targetAncestors)) {
       let cql = `type="page" AND ancestor=${ancestorId} AND label="procurement_db"`;
       if (mode === 'incremental') cql += ` AND lastmodified >= now("-1d")`;
       const results = await searchAllPages(cql, needBody);
