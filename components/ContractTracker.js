@@ -215,7 +215,7 @@ export default function ContractTracker() {
     return {
       total: a.length,
       autoRenewCount: a.filter((c) => c.auto_renew).length,
-      urgentCount: a.filter((c) => ["critical", "expired"].includes(getUrgencyLevel(c))).length,
+      urgentCount: a.filter((c) => { const d = Math.min(getDaysUntil(c.end_date), getDaysUntil(c.renewal_date)); return d >= 0 && d <= 30; }).length,
     };
   }, [contracts]);
 
