@@ -114,6 +114,7 @@ CREATE INDEX IF NOT EXISTS idx_contracts_is_deleted ON contracts(is_deleted);
 CREATE INDEX IF NOT EXISTS idx_contracts_status ON contracts(status);
 CREATE INDEX IF NOT EXISTS idx_contracts_end_date ON contracts(end_date);
 CREATE INDEX IF NOT EXISTS idx_contracts_status_deleted ON contracts(status, is_deleted);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_contracts_wiki_url_unique ON contracts(wiki_url) WHERE wiki_url IS NOT NULL AND wiki_url <> '';
 
 -- 7. updated_at 자동 갱신 트리거
 CREATE OR REPLACE FUNCTION update_updated_at()
@@ -182,7 +183,7 @@ INSERT INTO contracts (vendor, name, type, start_date, end_date, renewal_date, a
 SELECT * FROM (VALUES
   ('Datadog', 'APM & Infrastructure Monitoring', 'SaaS', '2025-03-01'::DATE, '2026-02-28'::DATE, '2025-12-28'::DATE, true, 60, 48000::NUMERIC, 'USD', 'KRAFTON', 'GS네오텍 통해 계약'),
   ('AltTester', 'Enterprise License', 'SaaS', '2025-06-01'::DATE, '2026-05-31'::DATE, '2026-03-31'::DATE, false, 0, 15000::NUMERIC, 'USD', 'PalM', 'PalM 스튜디오 전용'),
-  ('Newzoo', 'Market Intelligence Platform', 'SaaS', '2024-07-01'::DATE, '2025-06-30'::DATE, '2025-04-30'::DATE, true, 60, 32000::NUMERIC, 'USD', 'KRAFTON', '자동갱신 조항 확인 필요'),
-  ('Concur', 'Expense Management', 'SaaS', '2024-01-01'::DATE, '2025-12-31'::DATE, '2025-09-30'::DATE, true, 90, 72000::NUMERIC, 'USD', 'KRAFTON', '전사 경비관리 시스템')
+  ('Newzoo', 'Market Intelligence Platform', 'SaaS', '2025-07-01'::DATE, '2026-06-30'::DATE, '2026-04-30'::DATE, true, 60, 32000::NUMERIC, 'USD', 'KRAFTON', '자동갱신 조항 확인 필요'),
+  ('Concur', 'Expense Management', 'SaaS', '2025-01-01'::DATE, '2026-12-31'::DATE, '2026-09-30'::DATE, true, 90, 72000::NUMERIC, 'USD', 'KRAFTON', '전사 경비관리 시스템')
 ) AS v(vendor, name, type, start_date, end_date, renewal_date, auto_renew, auto_renew_notice_days, annual_cost, currency, studio, notes)
 WHERE NOT EXISTS (SELECT 1 FROM contracts LIMIT 1);

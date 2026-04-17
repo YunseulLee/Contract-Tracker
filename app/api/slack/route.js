@@ -1,18 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+import { verifyAuthToken } from '../../../lib/auth-token';
 
 export async function POST(request) {
   try {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader) {
-      return Response.json({ error: "인증이 필요합니다." }, { status: 401 });
-    }
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    // middleware 와 통합: ct_auth 쿠키만 검증
+    const token = request.cookies.get('ct_auth')?.value;
+    if (!token || !(await verifyAuthToken(token))) {
       return Response.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 

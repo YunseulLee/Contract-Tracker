@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { LayoutDashboard, Bell, List, Clock, Trash2, AlertTriangle, RefreshCw, Search, X } from "lucide-react";
+import { LayoutDashboard, Bell, List, Clock, Trash2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { fromDB, toDB, writeAuditLog, diffContract } from "@/lib/audit";
 import { getDaysUntil, getUrgencyLevel, formatCurrency } from "@/lib/helpers";
@@ -39,7 +39,9 @@ export default function ContractTracker() {
       try {
         const saved = localStorage.getItem("ct_notif_settings");
         if (saved) return JSON.parse(saved);
-      } catch {}
+      } catch (err) {
+        console.error("notifSettings load error:", err);
+      }
     }
     return { slackEnabled: false, slackWebhookUrl: "", slackChannel: "", emailEnabled: false, emailRecipients: "" };
   });
@@ -58,42 +60,59 @@ export default function ContractTracker() {
       if (result.error) {
         result = await supabase.from("contracts").select("*").order("end_date", { ascending: true });
       }
-      if (result.error) { showToast("데이터 로딩 실패: " + result.error.message, "error"); return; }
+      if (result.error) {
+        console.error("loadContracts error:", result.error);
+        showToast("데이터 로딩 실패: 잠시 후 다시 시도해주세요", "error");
+        return;
+      }
       setContracts((result.data || []).map(fromDB));
-    } catch {
-      showToast("데이터 로딩 실패", "error");
+    } catch (err) {
+      console.error("loadContracts exception:", err);
+      showToast("데이터 로딩 실패: 잠시 후 다시 시도해주세요", "error");
     }
   }, [showToast]);
 
   const loadCustomOptions = useCallback(async () => {
     try {
-      const { data } = await supabase.from("app_settings").select("*").eq("key", "custom_options").single();
+      const { data, error } = await supabase.from("app_settings").select("*").eq("key", "custom_options").maybeSingle();
+      if (error) { console.error("loadCustomOptions error:", error); return; }
       if (data?.value) {
         const parsed = JSON.parse(data.value);
         if (parsed.studios) setCustomStudios(parsed.studios);
         if (parsed.types) setCustomTypes(parsed.types);
       }
-    } catch {}
+    } catch (err) {
+      console.error("loadCustomOptions exception:", err);
+    }
   }, []);
 
   const loadDeletedContracts = useCallback(async () => {
     try {
       const { data, error } = await supabase.from("contracts").select("*").eq("is_deleted", true).order("deleted_at", { ascending: false });
-      if (!error && data) setDeletedContracts(data.map(fromDB));
-    } catch {}
+      if (error) { console.error("loadDeletedContracts error:", error); return; }
+      if (data) setDeletedContracts(data.map(fromDB));
+    } catch (err) {
+      console.error("loadDeletedContracts exception:", err);
+    }
   }, []);
 
   const saveCustomOptions = async (studios, types) => {
     const value = JSON.stringify({ studios, types });
-    try {
-      const { data } = await supabase.from("app_settings").select("*").eq("key", "custom_options").single();
-      if (data) { await supabase.from("app_settings").update({ value }).eq("key", "custom_options"); }
-      else { await supabase.from("app_settings").insert({ key: "custom_options", value }); }
-    } catch {}
+    const { error } = await supabase
+      .from("app_settings")
+      .upsert({ key: "custom_options", value, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    if (error) {
+      console.error("saveCustomOptions error:", error);
+      showToast("옵션 저장 실패: 잠시 후 다시 시도해주세요", "error");
+    }
   };
 
   useEffect(() => {
-    try { localStorage.setItem("ct_notif_settings", JSON.stringify(notifSettings)); } catch {}
+    try {
+      localStorage.setItem("ct_notif_settings", JSON.stringify(notifSettings));
+    } catch (err) {
+      console.error("notifSettings save error:", err);
+    }
   }, [notifSettings]);
 
   // 병렬 로딩: contracts + custom options 동시 요청
@@ -106,14 +125,22 @@ export default function ContractTracker() {
     if (c.id) {
       const oldContract = contracts.find((x) => x.id === c.id);
       const { error } = await supabase.from("contracts").update(toDB(c)).eq("id", c.id);
-      if (error) { showToast("수정 실패: " + error.message, "error"); return; }
+      if (error) {
+        console.error("saveContract update error:", error);
+        showToast("수정 실패: 잠시 후 다시 시도해주세요", "error");
+        return;
+      }
       if (oldContract) {
         const changes = diffContract(oldContract, c);
         if (changes.length > 0) await writeAuditLog(c.id, "update", changes, "");
       }
     } else {
       const { data, error } = await supabase.from("contracts").insert(toDB(c)).select("id").single();
-      if (error) { showToast("등록 실패: " + error.message, "error"); return; }
+      if (error) {
+        console.error("saveContract insert error:", error);
+        showToast("등록 실패: 잠시 후 다시 시도해주세요", "error");
+        return;
+      }
       if (data) await writeAuditLog(data.id, "create", [], "");
     }
     await loadContracts(); setShowForm(false); setEditContract(null);
@@ -122,7 +149,11 @@ export default function ContractTracker() {
 
   const deleteContract = async (id) => {
     const { error } = await supabase.from("contracts").update({ is_deleted: true, deleted_at: new Date().toISOString() }).eq("id", id);
-    if (error) { showToast("삭제 실패", "error"); return; }
+    if (error) {
+      console.error("deleteContract error:", error);
+      showToast("삭제 실패: 잠시 후 다시 시도해주세요", "error");
+      return;
+    }
     await writeAuditLog(id, "delete", [], "");
     await loadContracts(); setShowDetail(null); setDeleteTarget(null);
     showToast("휴지통으로 이동되었습니다.", "success");
@@ -130,7 +161,11 @@ export default function ContractTracker() {
 
   const restoreContract = async (id) => {
     const { error } = await supabase.from("contracts").update({ is_deleted: false, deleted_at: null }).eq("id", id);
-    if (error) { showToast("복구 실패", "error"); return; }
+    if (error) {
+      console.error("restoreContract error:", error);
+      showToast("복구 실패: 잠시 후 다시 시도해주세요", "error");
+      return;
+    }
     await writeAuditLog(id, "restore", [], "");
     await loadDeletedContracts(); await loadContracts();
     showToast("계약이 복구되었습니다.", "success");
@@ -139,7 +174,11 @@ export default function ContractTracker() {
   const toggleContractStatus = async (c) => {
     const newStatus = c.status === "active" ? "terminated" : "active";
     const { error } = await supabase.from("contracts").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("id", c.id);
-    if (error) { showToast("상태 변경 실패", "error"); return; }
+    if (error) {
+      console.error("toggleContractStatus error:", error);
+      showToast("상태 변경 실패: 잠시 후 다시 시도해주세요", "error");
+      return;
+    }
     await writeAuditLog(c.id, "update", [{ field_name: "status", old_value: c.status, new_value: newStatus }], "");
     await loadContracts(); setShowDetail(null);
     showToast(newStatus === "terminated" ? "계약이 종료 처리되었습니다." : "계약이 재활성화되었습니다.", "success");
@@ -148,7 +187,11 @@ export default function ContractTracker() {
   const importContracts = async (rows) => {
     const dbRows = rows.map(toDB);
     const { error } = await supabase.from("contracts").insert(dbRows);
-    if (error) { showToast("Import 실패: " + error.message, "error"); return; }
+    if (error) {
+      console.error("importContracts error:", error);
+      showToast("Import 실패: 잠시 후 다시 시도해주세요", "error");
+      return;
+    }
     await loadContracts();
     showToast(`${rows.length}건 Import 완료`, "success");
   };
@@ -173,11 +216,23 @@ export default function ContractTracker() {
       const res = await fetch("/api/slack", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ webhookUrl: notifSettings.slackWebhookUrl, message: msg }),
       });
-      if (res.ok) showToast("Slack 발송 완료", "success");
-      else { const data = await res.json(); showToast(data.error || "Slack 발송 실패", "error"); }
-    } catch { showToast("Slack 발송 실패", "error"); }
+      if (res.ok) { showToast("Slack 발송 완료", "success"); return; }
+      let errMsg = "Slack 발송 실패: 잠시 후 다시 시도해주세요";
+      try {
+        const data = await res.json();
+        console.error("sendSlack api error:", data);
+        if (data?.error) errMsg = data.error;
+      } catch (parseErr) {
+        console.error("sendSlack parse error:", parseErr);
+      }
+      showToast(errMsg, "error");
+    } catch (err) {
+      console.error("sendSlack network error:", err);
+      showToast("Slack 발송 실패: 잠시 후 다시 시도해주세요", "error");
+    }
   };
 
   const sendEmail = (subject, body) => {

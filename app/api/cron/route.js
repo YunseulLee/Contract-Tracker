@@ -14,8 +14,6 @@ function getSupabase() {
 
 function generateAlerts(contracts) {
   const alerts = [];
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
 
   contracts.forEach((c) => {
     const daysToEnd = getDaysUntil(c.end_date);
@@ -35,10 +33,8 @@ function generateAlerts(contracts) {
     }
 
     // 자동갱신 통지기한 도래
-    if (c.auto_renew && c.auto_renew_notice_days > 0) {
-      const noticeDate = new Date(c.end_date);
-      noticeDate.setDate(noticeDate.getDate() - c.auto_renew_notice_days);
-      const daysToNotice = Math.ceil((noticeDate - today) / 86400000);
+    if (c.auto_renew && c.auto_renew_notice_days > 0 && c.end_date) {
+      const daysToNotice = getDaysUntil(c.end_date) - c.auto_renew_notice_days;
       if (daysToNotice >= -7 && daysToNotice <= 30) {
         alerts.push({
           type: daysToNotice <= 0 ? "🚨 긴급" : "🔄 자동갱신",
@@ -169,10 +165,8 @@ export async function GET(request) {
         return d > 30 && d <= 60;
       });
       const autoRenewPending = contracts.filter((c) => {
-        if (!c.auto_renew || !c.auto_renew_notice_days) return false;
-        const noticeDate = new Date(c.end_date);
-        noticeDate.setDate(noticeDate.getDate() - c.auto_renew_notice_days);
-        const dtn = getDaysUntil(noticeDate.toISOString().slice(0, 10));
+        if (!c.auto_renew || !c.auto_renew_notice_days || !c.end_date) return false;
+        const dtn = getDaysUntil(c.end_date) - c.auto_renew_notice_days;
         return dtn >= -7 && dtn <= 30;
       });
 
@@ -244,8 +238,12 @@ export async function GET(request) {
     let renewalTransitions = 0;
     for (const c of contracts) {
       const daysToEnd = getDaysUntil(c.end_date);
-      // 90일 이내이고 아직 갱신 검토가 시작되지 않은 계약
-      if (daysToEnd > 0 && daysToEnd <= 90 && (!c.renewal_status || c.renewal_status === "none")) {
+      // 90일 이내이고 아직 pending_review/cancelled 가 아닌 계약은 검토 대상으로 전환
+      // approved 도 새 주기 도래 시 다시 pending_review 로 승격
+      if (
+        daysToEnd > 0 && daysToEnd <= 90 &&
+        (!c.renewal_status || c.renewal_status === "none" || c.renewal_status === "approved")
+      ) {
         const { error } = await getSupabase()
           .from("contracts")
           .update({ renewal_status: "pending_review", updated_at: new Date().toISOString() })
@@ -256,13 +254,6 @@ export async function GET(request) {
         } else {
           console.error(`갱신 상태 전환 실패 (${c.vendor}):`, error.message);
         }
-      }
-      // 갱신 승인 후 새 종료일 기준으로 다시 90일 밖이면 상태 리셋
-      if (c.renewal_status === "approved" && daysToEnd > 90) {
-        await getSupabase()
-          .from("contracts")
-          .update({ renewal_status: "none", renewal_decided_at: null, renewal_decided_by: "", renewal_notes: "", updated_at: new Date().toISOString() })
-          .eq("id", c.id);
       }
     }
 

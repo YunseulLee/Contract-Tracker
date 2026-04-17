@@ -62,7 +62,7 @@ describe('approveRenewal', () => {
     expect(writeAuditLog).toHaveBeenCalledWith(
       'test-1', 'update',
       expect.arrayContaining([
-        expect.objectContaining({ field_name: 'renewal_status', new_value: 'approved' }),
+        expect.objectContaining({ field_name: 'renewal_status', new_value: 'none' }),
         expect.objectContaining({ field_name: 'end_date', new_value: '2027-01-01' }),
       ]),
       'test@krafton.com'

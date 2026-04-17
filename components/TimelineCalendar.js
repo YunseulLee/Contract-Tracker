@@ -77,10 +77,13 @@ export default function TimelineCalendar({ contracts, onSelectContract }) {
           })}
         </div>
 
-        {selectedMonth && selectedItems.length > 0 && (
+        {selectedMonth && selectedItems.length > 0 && (() => {
+          const [y, m] = selectedMonth.split('-');
+          const label = `${y}년 ${Number(m)}월`;
+          return (
           <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #1F2233" }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: "#949BAD", marginBottom: 10 }}>
-              {selectedMonth.replace("-", "년 ")}월 — {selectedItems.length}건
+              {label} — {selectedItems.length}건
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {selectedItems.map(({ contract: sc, events }) => {
@@ -107,10 +110,15 @@ export default function TimelineCalendar({ contracts, onSelectContract }) {
               })}
             </div>
           </div>
-        )}
-        {selectedMonth && selectedItems.length === 0 && (
-          <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #1F2233", textAlign: "center", padding: "20px 0", color: "#444A58", fontSize: 12 }}>해당 월에 만료/갱신 예정 계약이 없습니다.</div>
-        )}
+          );
+        })()}
+        {selectedMonth && selectedItems.length === 0 && (() => {
+          const [y, m] = selectedMonth.split('-');
+          const label = `${y}년 ${Number(m)}월`;
+          return (
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #1F2233", textAlign: "center", padding: "20px 0", color: "#444A58", fontSize: 12 }}>{label} — 해당 월에 만료/갱신 예정 계약이 없습니다.</div>
+          );
+        })()}
       </div>
     </div>
   );

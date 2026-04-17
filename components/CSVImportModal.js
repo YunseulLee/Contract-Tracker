@@ -13,38 +13,60 @@ export default function CSVImportModal({ isOpen, onClose, onImport }) {
     const f = e.target.files[0];
     if (!f) return;
     const r = new FileReader();
-    r.onload = (ev) => { setCsvText(ev.target.result); parsePreview(ev.target.result); };
+    r.onload = (ev) => {
+      const text = String(ev.target.result || "").replace(/^\uFEFF/, "");
+      setCsvText(text);
+      parsePreview(text);
+    };
     r.readAsText(f);
   };
 
-  const parseCSVLine = (line) => {
-    const fields = [];
+  // 따옴표로 감싼 필드 내부의 개행(\n, \r\n)과 ""-escape를 보존하는 CSV 파서
+  const parseCSV = (text) => {
+    const rows = [];
+    let row = [];
     let current = "";
     let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
       if (inQuotes) {
-        if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+        if (ch === '"' && text[i + 1] === '"') { current += '"'; i++; }
         else if (ch === '"') { inQuotes = false; }
         else { current += ch; }
       } else {
         if (ch === '"') { inQuotes = true; }
-        else if (ch === ",") { fields.push(current.trim()); current = ""; }
+        else if (ch === ",") { row.push(current); current = ""; }
+        else if (ch === "\r" && text[i + 1] === "\n") { row.push(current); rows.push(row); row = []; current = ""; i++; }
+        else if (ch === "\n" || ch === "\r") { row.push(current); rows.push(row); row = []; current = ""; }
         else { current += ch; }
       }
     }
-    fields.push(current.trim());
-    return fields;
+    // 마지막 필드/행 플러시 (빈 trailing newline은 무시)
+    if (current.length > 0 || row.length > 0) { row.push(current); rows.push(row); }
+    return rows.map((r) => r.map((v) => v.trim())).filter((r) => r.some((v) => v !== ""));
   };
 
   const parsePreview = (text) => {
-    const lines = text.trim().split("\n").map((l) => l.replace(/\r$/, ""));
-    if (lines.length < 2) { setPreview([]); return; }
-    const headers = parseCSVLine(lines[0]).map((h) => h.trim().toLowerCase());
-    const rows = lines.slice(1).map((line) => {
-      const vals = parseCSVLine(line);
+    const cleaned = String(text || "").replace(/^\uFEFF/, "");
+    const rowsRaw = parseCSV(cleaned);
+    if (rowsRaw.length < 2) { setPreview([]); return; }
+    const headers = rowsRaw[0].map((h) => h.trim().toLowerCase());
+    const rows = rowsRaw.slice(1).map((vals) => {
       const obj = {};
       headers.forEach((h, idx) => (obj[h] = vals[idx] || ""));
+      const installmentCount = parseInt(obj.installment_count || obj.installmentcount || obj["분할횟수"] || "0") || 0;
+      const installmentAmount = parseFloat(obj.installment_amount || obj.installmentamount || obj["분할금액"] || "0") || 0;
+      const installmentCurrency = obj.installment_currency || obj.installmentcurrency || obj["분할통화"] || "KRW";
+      const installmentEnabled = installmentCount > 0;
+      const installmentSchedule = installmentEnabled
+        ? Array.from({ length: installmentCount }, (_, i) => ({
+            label: `${i + 1}차`,
+            amount: installmentAmount || 0,
+            currency: installmentCurrency || "KRW",
+            date: "",
+            paid: false,
+          }))
+        : [];
       return {
         vendor: obj.vendor || obj["벤더"] || "",
         name: obj.name || obj["계약명"] || "",
@@ -62,6 +84,8 @@ export default function CSVImportModal({ isOpen, onClose, onImport }) {
         wiki_url: obj.wiki_url || obj.wikiurl || obj["위키"] || obj["링크"] || "",
         supplier: obj.supplier || obj["공급사"] || obj["공급사명"] || "",
         notes: obj.notes || obj["메모"] || "",
+        installment_enabled: installmentEnabled,
+        installment_schedule: installmentSchedule,
         status: "active",
       };
     }).filter((r) => {
@@ -91,7 +115,7 @@ export default function CSVImportModal({ isOpen, onClose, onImport }) {
       </p>
       <input ref={fileRef} type="file" accept=".csv,.txt" onChange={handleFile} style={{ display: "none" }} />
       <button onClick={() => fileRef.current?.click()} style={{ padding: "12px 20px", borderRadius: 10, border: "1px dashed #4A9FD8", background: "#0D0E14", color: "#4A9FD8", fontSize: 13, cursor: "pointer", width: "100%", marginBottom: 12 }}>📂 CSV 파일 선택</button>
-      <textarea style={{ ...inputStyle, minHeight: 100, resize: "vertical", fontSize: 12, marginBottom: 12 }} value={csvText} onChange={(e) => { setCsvText(e.target.value); parsePreview(e.target.value); }} placeholder="CSV 텍스트를 여기에 붙여넣기..." />
+      <textarea style={{ ...inputStyle, minHeight: 100, resize: "vertical", fontSize: 12, marginBottom: 12 }} value={csvText} onChange={(e) => { const t = e.target.value.replace(/^\uFEFF/, ""); setCsvText(t); parsePreview(t); }} placeholder="CSV 텍스트를 여기에 붙여넣기..." />
 
       {preview.length > 0 && (
         <div style={{ marginBottom: 16 }}>

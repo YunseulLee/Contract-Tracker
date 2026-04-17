@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/confluence-sync?mode=incremental",
+      "path": "/api/confluence-sync?mode=incremental&year=2026",
       "schedule": "0 14 * * *"
     },
     {

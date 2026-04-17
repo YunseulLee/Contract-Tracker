@@ -8,7 +8,7 @@ export const useAuth = () => useContext(AuthContext);
 
 export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [role, setRole] = useState('admin');
+  const [role, setRole] = useState('viewer');
   const [loading, setLoading] = useState(true);
   const resolved = useRef(false);
 
@@ -30,14 +30,11 @@ export default function AuthProvider({ children }) {
 
       if (data) { setRole(data.role); return; }
 
-      // 레코드 없으면 자동 생성 (admin 없으면 admin, 있으면 viewer)
-      const { data: admins } = await supabase
-        .from('user_roles').select('id').eq('role', 'admin').limit(1);
-      const assignRole = (admins && admins.length > 0) ? 'viewer' : 'admin';
+      // 레코드 없으면 viewer로 고정 생성 (admin 승격은 seed 스크립트/콘솔에서만)
       await supabase.from('user_roles').upsert({
-        user_id: currentUser.id, email: currentUser.email, role: assignRole,
+        user_id: currentUser.id, email: currentUser.email, role: 'viewer',
       }, { onConflict: 'user_id' });
-      setRole(assignRole);
+      setRole('viewer');
     } catch {
       setRole('viewer');
     }

@@ -70,12 +70,27 @@ export default function ContractDetailWithAudit({ contract, onToggleStatus, onEd
               </div>
             ))}
           </div>
-          {c.wiki_url && (
-            <div style={{ padding: "12px 14px", background: "#0D0E14", borderRadius: 12, border: "1px solid #2B3044", marginBottom: 12 }}>
-              <div style={{ fontSize: 10, color: "#636B7E", textTransform: "uppercase", marginBottom: 4 }}>Wiki / 문서 링크</div>
-              {(() => { try { const u = new URL(c.wiki_url); return (u.protocol === "http:" || u.protocol === "https:") ? <a href={c.wiki_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: "#4A9FD8", textDecoration: "none", wordBreak: "break-all" }}>{c.wiki_url}</a> : <span style={{ fontSize: 13, color: "#949BAD", wordBreak: "break-all" }}>{c.wiki_url}</span>; } catch { return <span style={{ fontSize: 13, color: "#949BAD", wordBreak: "break-all" }}>{c.wiki_url}</span>; } })()}
-            </div>
-          )}
+          {c.wiki_url && (() => {
+            let u;
+            try { u = new URL(c.wiki_url); } catch { return null; }
+            if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+            const host = u.hostname;
+            const isTrusted = host.endsWith("atlassian.net") || host.includes("confluence");
+            return (
+              <div style={{ padding: "12px 14px", background: "#0D0E14", borderRadius: 12, border: "1px solid #2B3044", marginBottom: 12 }}>
+                <div style={{ fontSize: 10, color: "#636B7E", textTransform: "uppercase", marginBottom: 6 }}>Wiki / 문서 링크</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <a href={c.wiki_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: "#4A9FD8", textDecoration: "none", wordBreak: "break-all" }}>{c.wiki_url}</a>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600, background: isTrusted ? "#1B2333" : "#2D2A18", color: isTrusted ? "#4A9FD8" : "#F5B731", border: `1px solid ${isTrusted ? "#2E4A7A30" : "#8B833A40"}` }}>
+                    {isTrusted ? "🔗" : "⚠️"} {host}
+                  </span>
+                  {!isTrusted && (
+                    <span style={{ fontSize: 11, color: "#F5B731" }}>외부 링크</span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
           {c.installment_enabled && c.installment_schedule && c.installment_schedule.length > 0 && (
             <div style={{ padding: "14px", background: "#0D0E14", borderRadius: 12, border: "1px solid #1F2233", marginBottom: 12 }}>
               <div style={{ fontSize: 10, color: "#636B7E", textTransform: "uppercase", marginBottom: 10 }}>분할 결제 일정</div>

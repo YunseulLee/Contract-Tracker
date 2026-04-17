@@ -45,7 +45,7 @@ export default function ContractForm({ contract, onSave, onCancel, existingStudi
           </select>
         </InputField>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: form.auto_renew ? "1fr 1fr" : "1fr", gap: 16, alignItems: "center" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "center" }}>
         <InputField label="자동갱신">
           <div onClick={() => up("auto_renew", !form.auto_renew)} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "10px 0" }}>
             <div style={{ width: 44, height: 24, borderRadius: 12, background: form.auto_renew ? "#4A9FD8" : "#2B3044", position: "relative", transition: "background 0.3s" }}>
@@ -54,22 +54,20 @@ export default function ContractForm({ contract, onSave, onCancel, existingStudi
             <span style={{ fontSize: 13, color: "#949BAD" }}>{form.auto_renew ? "ON" : "OFF"}</span>
           </div>
         </InputField>
-        {form.auto_renew && (
-          <InputField label="사전 통보 기간">
-            <div style={{ display: "flex", gap: 8 }}>
-              {[30, 60, 90].map((d) => (
-                <button key={d} onClick={() => up("auto_renew_notice_days", d)} style={{
-                  flex: 1, padding: "10px", borderRadius: 8,
-                  border: `2px solid ${form.auto_renew_notice_days === d ? "#4A9FD8" : "#2B3044"}`,
-                  background: form.auto_renew_notice_days === d ? "#1B2333" : "#0D0E14",
-                  color: form.auto_renew_notice_days === d ? "#4A9FD8" : "#636B7E",
-                  fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "all 0.2s",
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}>{d}일</button>
-              ))}
-            </div>
-          </InputField>
-        )}
+        <InputField label="사전 통보 기간">
+          <div style={{ display: "flex", gap: 8, opacity: form.auto_renew ? 1 : 0.4 }}>
+            {[30, 60, 90].map((d) => (
+              <button key={d} disabled={!form.auto_renew} onClick={() => up("auto_renew_notice_days", d)} style={{
+                flex: 1, padding: "10px", borderRadius: 8,
+                border: `2px solid ${form.auto_renew && form.auto_renew_notice_days === d ? "#4A9FD8" : "#2B3044"}`,
+                background: form.auto_renew && form.auto_renew_notice_days === d ? "#1B2333" : "#0D0E14",
+                color: form.auto_renew && form.auto_renew_notice_days === d ? "#4A9FD8" : "#636B7E",
+                fontSize: 14, fontWeight: 600, cursor: form.auto_renew ? "pointer" : "not-allowed", transition: "all 0.2s",
+                fontFamily: "'JetBrains Mono', monospace",
+              }}>{d}일</button>
+            ))}
+          </div>
+        </InputField>
       </div>
 
       {/* 분할 결제 */}
@@ -150,7 +148,8 @@ export default function ContractForm({ contract, onSave, onCancel, existingStudi
         <button onClick={onCancel} style={{ padding: "10px 24px", borderRadius: 10, border: "1px solid #2B3044", background: "transparent", color: "#949BAD", fontSize: 14, cursor: "pointer" }}>취소</button>
         <button onClick={() => {
           if (!form.vendor.trim() || !form.name.trim() || !form.start_date || !form.end_date) return;
-          onSave(form);
+          const payload = { ...form, auto_renew_notice_days: form.auto_renew ? form.auto_renew_notice_days : 0 };
+          onSave(payload);
         }} disabled={!form.vendor.trim() || !form.name.trim() || !form.start_date || !form.end_date} style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: (!form.vendor.trim() || !form.name.trim() || !form.start_date || !form.end_date) ? "#2B3044" : "#4A9FD8", color: (!form.vendor.trim() || !form.name.trim() || !form.start_date || !form.end_date) ? "#555" : "#F0F1F4", fontSize: 14, fontWeight: 600, cursor: (!form.vendor.trim() || !form.name.trim() || !form.start_date || !form.end_date) ? "default" : "pointer" }}>{contract ? "수정" : "등록"}</button>
       </div>
     </div>
