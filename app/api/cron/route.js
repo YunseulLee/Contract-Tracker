@@ -133,13 +133,39 @@ export async function GET(request) {
 
   try {
     // 1. 활성 계약 가져오기
-    const { data: contracts, error } = await getSupabase()
+    const { data: contractsRaw, error } = await getSupabase()
       .from("contracts")
       .select("*")
       .eq("status", "active")
       .eq("is_deleted", false);
 
     if (error) throw error;
+
+    // ─── 만료 7일 경과 시 자동 종료 처리 (수동 종료 처리 버튼 미클릭 대비) ───
+    const toAutoTerminate = contractsRaw.filter((c) => getDaysUntil(c.end_date) <= -7);
+    let autoTerminatedCount = 0;
+    if (toAutoTerminate.length > 0) {
+      const ids = toAutoTerminate.map((c) => c.id);
+      const { error: termError } = await getSupabase()
+        .from("contracts")
+        .update({ status: "terminated", updated_at: new Date().toISOString() })
+        .in("id", ids);
+
+      if (termError) {
+        console.error("자동 종료 처리 실패:", termError);
+      } else {
+        autoTerminatedCount = toAutoTerminate.length;
+        await getSupabase().from("audit_log").insert(
+          toAutoTerminate.map((c) => ({
+            contract_id: c.id, action: "update", field_name: "status",
+            old_value: "active", new_value: "terminated",
+            changed_by: "system (auto, 만료 7일 경과)",
+          }))
+        );
+      }
+    }
+    const terminatedIds = new Set(autoTerminatedCount > 0 ? toAutoTerminate.map((c) => c.id) : []);
+    const contracts = contractsRaw.filter((c) => !terminatedIds.has(c.id));
 
     const webhookUrl = process.env.SLACK_WEBHOOK_URL;
     const dateStr = new Date().toLocaleDateString("ko-KR", {
@@ -230,7 +256,8 @@ export async function GET(request) {
       return Response.json({
         message: "주간 리포트 발송 완료",
         totalActive, expiring30: expiring30.length,
-        expiring60: expiring60.length, date: dateStr,
+        expiring60: expiring60.length, autoTerminated: autoTerminatedCount,
+        date: dateStr,
       });
     }
 
@@ -260,7 +287,7 @@ export async function GET(request) {
     // ─── 일일 알림 (기본) ───
     const alerts = generateAlerts(contracts);
 
-    if (alerts.length === 0) {
+    if (alerts.length === 0 && autoTerminatedCount === 0) {
       return Response.json({ message: "알림 대상 없음", count: 0 });
     }
 
@@ -293,6 +320,15 @@ export async function GET(request) {
 
     if (renewalTransitions > 0) {
       message += `ℹ️ _${renewalTransitions}건의 계약이 갱신 검토 상태로 자동 전환되었습니다._\n\n`;
+    }
+
+    // 자동 종료 처리된 계약 안내
+    if (autoTerminatedCount > 0) {
+      message += `━━━ 🔒 자동 종료 처리 (${autoTerminatedCount}건) ━━━\n`;
+      toAutoTerminate.forEach((c) => {
+        message += `> *${c.vendor}* — ${c.name} | 만료일 ${c.end_date}${c.owner_name ? ` | 담당: ${c.owner_name}` : ""}\n`;
+      });
+      message += `_만료 후 7일간 종료 처리되지 않아 시스템이 자동으로 종료 처리했습니다._\n\n`;
     }
 
     message += `_IT Procurement — Contract Tracker_`;
@@ -355,6 +391,7 @@ export async function GET(request) {
       message: "Slack 알림 발송 완료",
       count: alerts.length,
       escalations: escalations.length,
+      autoTerminated: autoTerminatedCount,
       date: dateStr,
     });
   } catch (error) {
