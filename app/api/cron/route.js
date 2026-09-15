@@ -307,17 +307,6 @@ export async function GET(request) {
       message += `> ${a.detail} | ${a.cost}${a.owner ? ` | 담당: ${a.owner}` : ""}\n\n`;
     });
 
-    // 갱신 검토 필요 항목 추가
-    const pendingReviews = contracts.filter((c) => c.renewal_status === "pending_review");
-    if (pendingReviews.length > 0) {
-      message += `━━━ 🔄 갱신 검토 대기 (${pendingReviews.length}건) ━━━\n`;
-      pendingReviews.forEach((c) => {
-        const d = getDaysUntil(c.end_date);
-        message += `> *${c.vendor}* — ${c.name} | D-${d} | ${formatCurrency(c.annual_cost, c.currency)}${c.owner_name ? ` | 담당: ${c.owner_name}` : ""}\n`;
-      });
-      message += `\n`;
-    }
-
     if (renewalTransitions > 0) {
       message += `ℹ️ _${renewalTransitions}건의 계약이 갱신 검토 상태로 자동 전환되었습니다._\n\n`;
     }
